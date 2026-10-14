@@ -5,7 +5,7 @@ from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog,
                                QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit,
-                               QMessageBox, QPushButton, QRadioButton, QScrollArea, QSpinBox, QStackedWidget,
+                               QMenu, QMessageBox, QPushButton, QRadioButton, QScrollArea, QSpinBox, QStackedWidget,
                                QToolButton, QVBoxLayout, QWidget)
 
 from .. import PUBLIC_SERVER, game, mods, schema
@@ -226,15 +226,21 @@ class SettingsPage(QWidget):
             self.rows[s.key] = row
             lay.addWidget(row)
 
-    def _page(self, title, lead):
+    def _page(self, title, lead, header_action=None):
         w = QWidget()
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 14, 20)
         lay.setSpacing(2)
+        header = QHBoxLayout()
+        header.setSpacing(12)
         t = QLabel(title)
         t.setObjectName("pageTitle")
         t.setStyleSheet("font-size: 22px;")
-        lay.addWidget(t)
+        header.addWidget(t)
+        header.addStretch(1)
+        if header_action:
+            header.addWidget(header_action, 0, Qt.AlignVCenter)
+        lay.addLayout(header)
         if lead:
             lay.addWidget(label(lead, "pageLead"))
         scroll = QScrollArea()
@@ -254,7 +260,7 @@ class SettingsPage(QWidget):
             "Profile": "Your saves live in the game's data folder. You can also continue a Xenia Canary save.",
             "Advanced": "For testing and troubleshooting. Everything here is also a forza.toml key or a command-line flag.",
         }
-        scroll, lay = self._page(g, leads[g])
+        scroll, lay = self._page(g, leads[g], self._mod_add_button() if g == "Mods" else None)
         if g == "Online":
             self._online_block(lay)
         if g == "Mods":
@@ -273,17 +279,6 @@ class SettingsPage(QWidget):
         return scroll
 
     def _mods_block(self, lay):
-        buttons = QHBoxLayout()
-        install_zip = QPushButton("Install from ZIP")
-        install_zip.clicked.connect(self._install_mod_zip)
-        install_folder = QPushButton("Install from folder")
-        install_folder.clicked.connect(self._install_mod_folder)
-        buttons.addWidget(install_zip)
-        buttons.addWidget(install_folder)
-        buttons.addStretch(1)
-        lay.addLayout(buttons)
-        lay.addWidget(label("Install a downloaded release ZIP or a local mod folder. Packages are "
-                            "validated and copied into the game data folder.", "help"))
         found, warnings = mods.discover(self.cfg)
         if warnings:
             for warning in warnings:
@@ -327,6 +322,19 @@ class SettingsPage(QWidget):
 
         self.mod_list.currentRowChanged.connect(self._select_mod)
         self.mod_list.setCurrentRow(selected_row)
+
+    def _mod_add_button(self):
+        button = QToolButton()
+        button.setObjectName("addMod")
+        button.setText("+")
+        button.setToolTip("Install a mod")
+        button.setAccessibleName("Install a mod")
+        button.setPopupMode(QToolButton.InstantPopup)
+        menu = QMenu(button)
+        menu.addAction("Install from ZIP").triggered.connect(self._install_mod_zip)
+        menu.addAction("Install from folder").triggered.connect(self._install_mod_folder)
+        button.setMenu(menu)
+        return button
 
     def _mod_detail(self, mod):
         page = QWidget()
