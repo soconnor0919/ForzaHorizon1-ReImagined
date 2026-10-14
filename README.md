@@ -159,7 +159,8 @@ your machine from your own files; nothing of the game is ever downloaded or ship
    Update 4 takes about 3.6 to 4.6 minutes, peaks near 2 GB of RAM and leaves about 15 GB on
    disk. It can be cancelled and resumed, and is repeated only when something changed.
 4. **Play**. Every setting of `forza.toml` has a page in **Settings** (frame rate, display,
-   keyboard and mouse bindings, online server, profile, Xenia save import).
+   keyboard and mouse bindings, online server, profile, Xenia save import). Optional local mods
+   can be installed from a folder or release ZIP under **Settings > Mods**.
 
 Details: [`docs/launcher.md`](docs/launcher.md). The steps below are the same build by hand.
 
