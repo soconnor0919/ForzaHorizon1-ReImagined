@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBo
                                QPushButton, QRadioButton, QScrollArea, QSpinBox, QStackedWidget,
                                QVBoxLayout, QWidget)
 
-from .. import PUBLIC_SERVER, game, schema
+from .. import PUBLIC_SERVER, game, mods, schema
 from ..config import Config, render_toml, validate_extras
 from . import theme
 from .widgets import Switch, card, label
@@ -247,6 +247,7 @@ class SettingsPage(QWidget):
     def _build_group(self, g):
         leads = {
             "Display": "Window, frame rate and picture.",
+            "Mods": "Optional graphics and quality-of-life additions discovered in the game data folder.",
             "Controls": "Controllers work out of the box; keyboard and mouse is available but untested.",
             "Audio": "",
             "Online": "Xbox LIVE is gone, so the game signs in to a Forza Live server instead.",
@@ -256,6 +257,8 @@ class SettingsPage(QWidget):
         scroll, lay = self._page(g, leads[g])
         if g == "Online":
             self._online_block(lay)
+        if g == "Mods":
+            self._mods_block(lay)
         if g == "Profile":
             self._profile_block(lay)
         self._rows(lay, g)
@@ -268,6 +271,66 @@ class SettingsPage(QWidget):
             self._advanced_block(lay)
         lay.addStretch(1)
         return scroll
+
+    def _mods_block(self, lay):
+        found, warnings = mods.discover(self.cfg)
+        if warnings:
+            for warning in warnings:
+                lay.addWidget(label(warning, "bad"))
+        if not found:
+            lay.addWidget(label(f"No mods found. Add each mod as a folder containing mod.json under "
+                                f"{self.cfg.data_home() / 'mods'}.", "help"))
+            return
+        for mod in found:
+            lay.addWidget(heading(mod.name))
+            row = QHBoxLayout()
+            col = QVBoxLayout()
+            title = QLabel("Enabled")
+            title.setStyleSheet("font-weight: 600;")
+            col.addWidget(title)
+            if mod.description:
+                col.addWidget(label(mod.description, "help"))
+            row.addLayout(col, 1)
+            switch = Switch()
+            switch.setChecked(mods.enabled(self.cfg, mod))
+            switch.toggled.connect(lambda value, m=mod: self._mod_enabled(m, value))
+            row.addWidget(switch)
+            box = QWidget()
+            box.setLayout(row)
+            lay.addWidget(box)
+            for option in mod.options:
+                option_row = QHBoxLayout()
+                option_col = QVBoxLayout()
+                option_title = QLabel(option.label)
+                option_title.setStyleSheet("font-weight: 600;")
+                option_col.addWidget(option_title)
+                if option.help:
+                    option_col.addWidget(label(option.help, "help"))
+                option_row.addLayout(option_col, 1)
+                if option.kind == "bool":
+                    control = Switch()
+                    control.setChecked(bool(mods.option_value(self.cfg, mod, option)))
+                    control.toggled.connect(lambda value, m=mod, o=option: self._mod_option(m, o, value))
+                else:
+                    control = Combo()
+                    for value, text in option.choices:
+                        control.addItem(text, value)
+                    index = control.findData(mods.option_value(self.cfg, mod, option))
+                    control.setCurrentIndex(max(index, 0))
+                    control.currentIndexChanged.connect(
+                        lambda _index, w=control, m=mod, o=option: self._mod_option(m, o, w.currentData()))
+                option_row.addWidget(control)
+                option_box = QWidget()
+                option_box.setLayout(option_row)
+                lay.addWidget(option_box)
+
+    def _mod_enabled(self, mod, value):
+        mods.set_enabled(self.cfg, mod, value)
+        self.touched()
+
+    def _mod_option(self, mod, option, value):
+        mods.set_option(self.cfg, mod, option, value)
+        self.touched()
 
     def _pad_block(self, lay):
         lay.insertWidget(2, heading("Players"))
