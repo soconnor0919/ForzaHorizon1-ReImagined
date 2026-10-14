@@ -10,8 +10,11 @@ import io
 import json
 import os
 import re
+import shutil
+import stat
 import sys
 import tempfile
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -21,6 +24,12 @@ MANIFEST = "mod.json"
 MANIFEST_SCHEMA = 1
 ID_RE = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}\Z")
 ENV_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+MAX_ARCHIVE_FILES = 10_000
+MAX_ARCHIVE_BYTES = 4 * 1024 ** 3
+
+
+class InstallError(RuntimeError):
+    pass
 
 
 @dataclass
@@ -121,6 +130,94 @@ def discover(cfg: Config) -> tuple[list[LauncherMod], list[str]]:
         except (OSError, ValueError, KeyError, TypeError) as e:
             warnings.append(f"Could not load {path}: {e}")
     return found, warnings
+
+
+def _package_root(folder: Path) -> Path:
+    if (folder / MANIFEST).is_file():
+        return folder
+    manifests = [p for p in folder.glob(f"*/{MANIFEST}") if p.is_file()]
+    if len(manifests) == 1:
+        return manifests[0].parent
+    if not manifests:
+        raise InstallError(f"No {MANIFEST} was found at the package root.")
+    raise InstallError(f"The package contains more than one {MANIFEST}.")
+
+
+def _extract_zip(source: Path, destination: Path):
+    try:
+        archive = zipfile.ZipFile(source)
+    except (OSError, zipfile.BadZipFile) as e:
+        raise InstallError(f"Could not open {source.name}: {e}") from e
+    with archive:
+        entries = archive.infolist()
+        if len(entries) > MAX_ARCHIVE_FILES:
+            raise InstallError(f"The package has more than {MAX_ARCHIVE_FILES:,} files.")
+        if sum(entry.file_size for entry in entries) > MAX_ARCHIVE_BYTES:
+            raise InstallError("The package expands beyond the 4 GB safety limit.")
+        for entry in entries:
+            # ZIP paths are POSIX, but reject backslashes too so Windows cannot reinterpret them.
+            name = entry.filename.replace("\\", "/")
+            parts = Path(name).parts
+            if not name or name.startswith("/") or ".." in parts or Path(name).drive:
+                raise InstallError(f"The package has an unsafe path: {entry.filename}")
+            mode = entry.external_attr >> 16
+            if stat.S_ISLNK(mode):
+                raise InstallError(f"The package contains a symbolic link: {entry.filename}")
+            target = destination.joinpath(*parts)
+            if entry.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(entry) as src, open(target, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+
+
+def install(cfg: Config, source: Path, replace=False) -> tuple[LauncherMod, bool]:
+    """Install one manifest mod from a folder or ZIP. Returns (mod, replaced_existing)."""
+    source = source.resolve()
+    mods_root = cfg.data_home() / "mods"
+    mods_root.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=mods_root, prefix=".install-") as temporary:
+        work = Path(temporary)
+        if source.is_dir():
+            source_root = _package_root(source)
+            payload = work / "payload"
+            shutil.copytree(source_root, payload,
+                            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"))
+        elif source.is_file() and source.suffix.lower() == ".zip":
+            extracted = work / "extracted"
+            extracted.mkdir()
+            _extract_zip(source, extracted)
+            source_root = _package_root(extracted)
+            payload = work / "payload"
+            source_root.rename(payload)
+        else:
+            raise InstallError("Choose a mod folder or a .zip package.")
+
+        try:
+            mod = load_manifest(payload / MANIFEST)
+        except (OSError, ValueError, KeyError, TypeError) as e:
+            raise InstallError(f"The mod manifest is not valid: {e}") from e
+        target = mods_root / mod.id
+        target_resolved = target.resolve()
+        if mods_root.resolve() not in target_resolved.parents:
+            raise InstallError("The mod id produces an unsafe install path.")
+        exists = target.exists()
+        if exists and not replace:
+            raise FileExistsError(f"{mod.name} is already installed.")
+
+        backup = work / "previous"
+        try:
+            if exists:
+                target.rename(backup)
+            payload.rename(target)
+        except BaseException:
+            if not target.exists() and backup.exists():
+                backup.rename(target)
+            raise
+        mod.directory = target
+        set_enabled(cfg, mod, True)
+        return mod, exists
 
 
 def enabled(cfg: Config, mod: LauncherMod) -> bool:
