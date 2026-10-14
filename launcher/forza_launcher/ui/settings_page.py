@@ -242,7 +242,9 @@ class SettingsPage(QWidget):
             header.addWidget(header_action, 0, Qt.AlignVCenter)
         lay.addLayout(header)
         if lead:
-            lay.addWidget(label(lead, "pageLead"))
+            lead_label = label(lead, "pageLead")
+            lead_label.setContentsMargins(0, 0, 0, 12)
+            lay.addWidget(lead_label)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
