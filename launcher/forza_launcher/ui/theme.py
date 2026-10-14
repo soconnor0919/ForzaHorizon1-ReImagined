@@ -73,6 +73,13 @@ QListWidget#modList::item:hover {{ background: #1a1140; color: {TEXT}; }}
 QToolButton#settingsToggle {{ color: {TEXT}; background: transparent; border: none; padding: 8px 0;
   font-weight: 700; text-align: left; }}
 QToolButton#settingsToggle:hover {{ color: {CREAM}; }}
+QToolButton#addMod {{ color: {CREAM}; background: {PANEL2}; border: 1px solid {BORDER}; border-radius: 17px;
+  min-width: 32px; max-width: 32px; min-height: 32px; max-height: 32px; font-size: 22px; font-weight: 500; }}
+QToolButton#addMod:hover {{ border-color: {ORANGE}; background: #2d1d57; }}
+QToolButton#addMod::menu-indicator {{ image: none; width: 0; }}
+QMenu {{ background: {PANEL2}; border: 1px solid {BORDER}; border-radius: 8px; padding: 5px; }}
+QMenu::item {{ color: {TEXT}; padding: 8px 28px 8px 12px; border-radius: 6px; }}
+QMenu::item:selected {{ background: #35215f; color: {CREAM}; }}
 QScrollArea {{ border: none; background: transparent; }}
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 2px; }}
 QScrollBar::handle:vertical {{ background: {BORDER}; border-radius: 4px; min-height: 30px; }}
