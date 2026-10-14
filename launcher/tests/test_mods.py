@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from forza_launcher import mods
@@ -94,6 +95,48 @@ class ModTests(unittest.TestCase):
         mods.set_enabled(self.cfg, mod, True)
         with self.assertRaisesRegex(RuntimeError, "invalid environment value"):
             mods.apply(self.cfg, {}, [])
+
+    def test_installs_folder_and_enables_mod(self):
+        source = self.root / "download" / "sample-release"
+        source.mkdir(parents=True)
+        (source / "mod.json").write_text(json.dumps({
+            "schema": 1, "id": "folder-mod", "name": "Folder mod"
+        }), encoding="utf-8")
+        (source / "payload.dll").write_bytes(b"mod")
+        mod, replaced = mods.install(self.cfg, source)
+        self.assertFalse(replaced)
+        self.assertEqual(mod.id, "folder-mod")
+        self.assertEqual((self.root / "mods" / "folder-mod" / "payload.dll").read_bytes(), b"mod")
+        self.assertTrue(mods.enabled(self.cfg, mod))
+
+    def test_installs_github_style_zip_and_replaces_only_when_requested(self):
+        archive = self.root / "sample.zip"
+        with zipfile.ZipFile(archive, "w") as z:
+            z.writestr("sample-main/mod.json", json.dumps({
+                "schema": 1, "id": "zip-mod", "name": "ZIP mod"
+            }))
+            z.writestr("sample-main/value.txt", "first")
+        mods.install(self.cfg, archive)
+        with self.assertRaises(FileExistsError):
+            mods.install(self.cfg, archive)
+
+        with zipfile.ZipFile(archive, "w") as z:
+            z.writestr("sample-main/mod.json", json.dumps({
+                "schema": 1, "id": "zip-mod", "name": "ZIP mod"
+            }))
+            z.writestr("sample-main/value.txt", "second")
+        _mod, replaced = mods.install(self.cfg, archive, replace=True)
+        self.assertTrue(replaced)
+        self.assertEqual((self.root / "mods" / "zip-mod" / "value.txt").read_text(), "second")
+
+    def test_rejects_zip_path_traversal(self):
+        archive = self.root / "unsafe.zip"
+        with zipfile.ZipFile(archive, "w") as z:
+            z.writestr("../outside.txt", "no")
+            z.writestr("mod.json", json.dumps({"schema": 1, "id": "unsafe"}))
+        with self.assertRaisesRegex(mods.InstallError, "unsafe path"):
+            mods.install(self.cfg, archive)
+        self.assertFalse((self.root / "outside.txt").exists())
 
 
 if __name__ == "__main__":

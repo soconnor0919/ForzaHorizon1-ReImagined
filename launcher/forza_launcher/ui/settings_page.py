@@ -5,7 +5,7 @@ from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog,
                                QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPlainTextEdit,
-                               QPushButton, QRadioButton, QScrollArea, QSpinBox, QStackedWidget,
+                               QMessageBox, QPushButton, QRadioButton, QScrollArea, QSpinBox, QStackedWidget,
                                QVBoxLayout, QWidget)
 
 from .. import PUBLIC_SERVER, game, mods, schema
@@ -273,6 +273,17 @@ class SettingsPage(QWidget):
         return scroll
 
     def _mods_block(self, lay):
+        buttons = QHBoxLayout()
+        install_zip = QPushButton("Install from ZIP")
+        install_zip.clicked.connect(self._install_mod_zip)
+        install_folder = QPushButton("Install from folder")
+        install_folder.clicked.connect(self._install_mod_folder)
+        buttons.addWidget(install_zip)
+        buttons.addWidget(install_folder)
+        buttons.addStretch(1)
+        lay.addLayout(buttons)
+        lay.addWidget(label("Install a downloaded release ZIP or a local mod folder. Packages are "
+                            "validated and copied into the game data folder.", "help"))
         found, warnings = mods.discover(self.cfg)
         if warnings:
             for warning in warnings:
@@ -331,6 +342,34 @@ class SettingsPage(QWidget):
     def _mod_option(self, mod, option, value):
         mods.set_option(self.cfg, mod, option, value)
         self.touched()
+
+    def _install_mod_zip(self):
+        path, _selected = QFileDialog.getOpenFileName(
+            self, "Install mod", str(Path.home()), "Mod packages (*.zip);;All files (*)")
+        if path:
+            self._install_mod(Path(path))
+
+    def _install_mod_folder(self):
+        path = QFileDialog.getExistingDirectory(self, "Install mod folder", str(Path.home()))
+        if path:
+            self._install_mod(Path(path))
+
+    def _install_mod(self, source):
+        try:
+            try:
+                mod, replaced = mods.install(self.cfg, source)
+            except FileExistsError as e:
+                if QMessageBox.question(self, "Update mod", f"{e}\n\nReplace it with this package?") \
+                        != QMessageBox.Yes:
+                    return
+                mod, replaced = mods.install(self.cfg, source, replace=True)
+        except (OSError, mods.InstallError) as e:
+            QMessageBox.warning(self, "Could not install mod", str(e))
+            return
+        self.cfg.save()
+        self.rebuild()
+        verb = "Updated" if replaced else "Installed"
+        self.window.status(f"{verb} {mod.name}. It is enabled for the next launch.")
 
     def _pad_block(self, lay):
         lay.insertWidget(2, heading("Players"))
