@@ -96,6 +96,17 @@ class ModTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "invalid environment value"):
             mods.apply(self.cfg, {}, [])
 
+    def test_invalid_saved_mod_state_falls_back_to_empty(self):
+        self.cfg.path.write_text(json.dumps({"mods": "broken"}), encoding="utf-8")
+        loaded = Config(self.cfg.path)
+        self.assertEqual(loaded.mods, {"enabled": {}, "options": {}})
+
+    def test_manifest_rejects_malformed_requirements(self):
+        self.add_mod(requires=["gpu_backend"])
+        found, warnings = mods.discover(self.cfg)
+        self.assertEqual(found, [])
+        self.assertIn("requires is not an object", warnings[0])
+
     def test_installs_folder_and_enables_mod(self):
         source = self.root / "download" / "sample-release"
         source.mkdir(parents=True)
