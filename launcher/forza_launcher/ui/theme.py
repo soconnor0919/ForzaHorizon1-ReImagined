@@ -74,7 +74,7 @@ QToolButton#settingsToggle {{ color: {TEXT}; background: transparent; border: no
   font-weight: 700; text-align: left; }}
 QToolButton#settingsToggle:hover {{ color: {CREAM}; }}
 QToolButton#addMod {{ color: {CREAM}; background: {PANEL2}; border: 1px solid {BORDER}; border-radius: 17px;
-  min-width: 32px; max-width: 32px; min-height: 32px; max-height: 32px; font-size: 22px; font-weight: 500; }}
+  min-width: 32px; max-width: 32px; min-height: 32px; max-height: 32px; padding: 0; }}
 QToolButton#addMod:hover {{ border-color: {ORANGE}; background: #2d1d57; }}
 QToolButton#addMod::menu-indicator {{ image: none; width: 0; }}
 QMenu {{ background: {PANEL2}; border: 1px solid {BORDER}; border-radius: 8px; padding: 5px; }}
