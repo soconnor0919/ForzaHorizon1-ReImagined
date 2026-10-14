@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBo
 from .. import PUBLIC_SERVER, game, mods, schema
 from ..config import Config, render_toml, validate_extras
 from . import theme
-from .widgets import Switch, card, label
+from .widgets import AddModButton, Switch, card, label
 
 NO_WHEEL = Qt.StrongFocus
 
@@ -326,9 +326,8 @@ class SettingsPage(QWidget):
         self.mod_list.setCurrentRow(selected_row)
 
     def _mod_add_button(self):
-        button = QToolButton()
+        button = AddModButton()
         button.setObjectName("addMod")
-        button.setText("+")
         button.setToolTip("Install a mod")
         button.setAccessibleName("Install a mod")
         button.setPopupMode(QToolButton.InstantPopup)
