@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 from .paths import IS_WINDOWS
 
-GROUPS = ["Display", "Controls", "Audio", "Online", "Profile", "Advanced"]
+GROUPS = ["Display", "Mods", "Controls", "Audio", "Online", "Profile", "Advanced"]
 
 
 @dataclass
