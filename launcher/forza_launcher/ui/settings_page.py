@@ -4,9 +4,9 @@ from pathlib import Path
 from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog,
-                               QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPlainTextEdit,
+                               QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit,
                                QMessageBox, QPushButton, QRadioButton, QScrollArea, QSpinBox, QStackedWidget,
-                               QVBoxLayout, QWidget)
+                               QToolButton, QVBoxLayout, QWidget)
 
 from .. import PUBLIC_SERVER, game, mods, schema
 from ..config import Config, render_toml, validate_extras
@@ -292,23 +292,81 @@ class SettingsPage(QWidget):
             lay.addWidget(label(f"No mods found. Add each mod as a folder containing mod.json under "
                                 f"{self.cfg.data_home() / 'mods'}.", "help"))
             return
-        for mod in found:
-            lay.addWidget(heading(mod.name))
-            row = QHBoxLayout()
-            col = QVBoxLayout()
-            title = QLabel("Enabled")
-            title.setStyleSheet("font-weight: 600;")
-            col.addWidget(title)
-            if mod.description:
-                col.addWidget(label(mod.description, "help"))
-            row.addLayout(col, 1)
-            switch = Switch()
-            switch.setChecked(mods.enabled(self.cfg, mod))
-            switch.toggled.connect(lambda value, m=mod: self._mod_enabled(m, value))
-            row.addWidget(switch)
-            box = QWidget()
-            box.setLayout(row)
-            lay.addWidget(box)
+
+        browser = QHBoxLayout()
+        browser.setSpacing(14)
+
+        list_card, list_lay = card(QVBoxLayout, (12, 12, 12, 12), 8)
+        list_title = QLabel("Installed mods")
+        list_title.setObjectName("cardTitle")
+        list_lay.addWidget(list_title)
+        self.mod_list = QListWidget()
+        self.mod_list.setObjectName("modList")
+        self.mod_list.setFixedWidth(245)
+        self.mod_list.setMinimumHeight(300)
+        list_lay.addWidget(self.mod_list, 1)
+        browser.addWidget(list_card, 0)
+
+        detail_card, detail_lay = card(QVBoxLayout, (20, 18, 20, 18), 10)
+        self.mod_stack = QStackedWidget()
+        detail_lay.addWidget(self.mod_stack)
+        browser.addWidget(detail_card, 1)
+        lay.addLayout(browser, 1)
+
+        wanted = getattr(self, "_selected_mod_id", None)
+        selected_row = 0
+        for index, mod in enumerate(found):
+            item = QListWidgetItem()
+            item.setData(Qt.UserRole, mod.id)
+            item.setToolTip(mod.description or mod.name)
+            self.mod_list.addItem(item)
+            self._update_mod_item(mod)
+            self.mod_stack.addWidget(self._mod_detail(mod))
+            if mod.id == wanted:
+                selected_row = index
+
+        self.mod_list.currentRowChanged.connect(self._select_mod)
+        self.mod_list.setCurrentRow(selected_row)
+
+    def _mod_detail(self, mod):
+        page = QWidget()
+        lay = QVBoxLayout(page)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
+
+        title = QLabel(mod.name)
+        title.setObjectName("modTitle")
+        lay.addWidget(title)
+        if mod.description:
+            lay.addWidget(label(mod.description, "help"))
+
+        lay.addWidget(hline())
+        enabled_row = QHBoxLayout()
+        enabled_col = QVBoxLayout()
+        enabled_title = QLabel("Enabled")
+        enabled_title.setStyleSheet("font-weight: 700;")
+        enabled_col.addWidget(enabled_title)
+        enabled_col.addWidget(label("Load this mod the next time the game starts.", "help"))
+        enabled_row.addLayout(enabled_col, 1)
+        switch = Switch()
+        switch.setChecked(mods.enabled(self.cfg, mod))
+        switch.toggled.connect(lambda value, m=mod: self._mod_enabled(m, value))
+        enabled_row.addWidget(switch, 0, Qt.AlignVCenter)
+        lay.addLayout(enabled_row)
+
+        settings = QToolButton()
+        settings.setObjectName("settingsToggle")
+        settings.setText("Settings")
+        settings.setCheckable(True)
+        settings.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        settings.setArrowType(Qt.RightArrow)
+        lay.addWidget(settings)
+
+        options = QWidget()
+        options_lay = QVBoxLayout(options)
+        options_lay.setContentsMargins(12, 2, 0, 0)
+        options_lay.setSpacing(8)
+        if mod.options:
             for option in mod.options:
                 option_row = QHBoxLayout()
                 option_col = QVBoxLayout()
@@ -330,13 +388,42 @@ class SettingsPage(QWidget):
                     control.setCurrentIndex(max(index, 0))
                     control.currentIndexChanged.connect(
                         lambda _index, w=control, m=mod, o=option: self._mod_option(m, o, w.currentData()))
-                option_row.addWidget(control)
-                option_box = QWidget()
-                option_box.setLayout(option_row)
-                lay.addWidget(option_box)
+                option_row.addWidget(control, 0, Qt.AlignVCenter)
+                options_lay.addLayout(option_row)
+        else:
+            options_lay.addWidget(label("This mod has no configurable settings.", "help"))
+        options.hide()
+        settings.toggled.connect(lambda open_, panel=options, button=settings: self._toggle_mod_settings(
+            panel, button, open_))
+        lay.addWidget(options)
+        lay.addStretch(1)
+        return page
+
+    def _select_mod(self, row):
+        if row < 0:
+            return
+        self.mod_stack.setCurrentIndex(row)
+        item = self.mod_list.item(row)
+        self._selected_mod_id = item.data(Qt.UserRole)
+
+    @staticmethod
+    def _toggle_mod_settings(panel, button, open_):
+        panel.setVisible(open_)
+        button.setArrowType(Qt.DownArrow if open_ else Qt.RightArrow)
+
+    def _update_mod_item(self, mod):
+        if not hasattr(self, "mod_list"):
+            return
+        for row in range(self.mod_list.count()):
+            item = self.mod_list.item(row)
+            if item.data(Qt.UserRole) == mod.id:
+                state = "Enabled" if mods.enabled(self.cfg, mod) else "Disabled"
+                item.setText(f"{mod.name}\n{state}")
+                break
 
     def _mod_enabled(self, mod, value):
         mods.set_enabled(self.cfg, mod, value)
+        self._update_mod_item(mod)
         self.touched()
 
     def _mod_option(self, mod, option, value):
@@ -367,6 +454,7 @@ class SettingsPage(QWidget):
             QMessageBox.warning(self, "Could not install mod", str(e))
             return
         self.cfg.save()
+        self._selected_mod_id = mod.id
         self.rebuild()
         verb = "Updated" if replaced else "Installed"
         self.window.status(f"{verb} {mod.name}. It is enabled for the next launch.")
