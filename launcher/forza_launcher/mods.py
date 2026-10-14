@@ -71,6 +71,9 @@ def _option(raw: dict) -> ModOption:
     ini = raw.get("ini", {})
     if not isinstance(ini, dict):
         raise ValueError(f"option {key!r} has an invalid ini object")
+    values = raw.get("values", {})
+    if not isinstance(values, dict):
+        raise ValueError(f"option {key!r} has an invalid values object")
     choices = []
     for choice in raw.get("choices", []):
         if not isinstance(choice, dict) or "value" not in choice:
@@ -84,7 +87,7 @@ def _option(raw: dict) -> ModOption:
     return ModOption(key, str(raw.get("label", key)), kind, default,
                      str(raw.get("help", "")), choices, str(ini.get("file", "")),
                      str(ini.get("section", "")), str(ini.get("key", "")),
-                     {str(k): str(v) for k, v in raw.get("values", {}).items()})
+                     {str(k): str(v) for k, v in values.items()})
 
 
 def load_manifest(path: Path) -> LauncherMod:
@@ -96,7 +99,10 @@ def load_manifest(path: Path) -> LauncherMod:
     mod_id = str(raw["id"])
     if not ID_RE.fullmatch(mod_id):
         raise ValueError(f"invalid mod id {mod_id!r}")
-    platforms = [str(p).lower() for p in raw.get("platforms", [])]
+    raw_platforms = raw.get("platforms", [])
+    if not isinstance(raw_platforms, list):
+        raise ValueError("platforms is not a list")
+    platforms = [str(p).lower() for p in raw_platforms]
     environment = raw.get("environment", {})
     if not isinstance(environment, dict):
         raise ValueError("environment is not an object")
@@ -107,9 +113,12 @@ def load_manifest(path: Path) -> LauncherMod:
     options = [_option(item) for item in raw.get("options", [])]
     if len({o.key for o in options}) != len(options):
         raise ValueError("duplicate option id")
+    requires = raw.get("requires", {})
+    if not isinstance(requires, dict) or not isinstance(requires.get("settings", {}), dict):
+        raise ValueError("requires is not an object with a settings object")
     return LauncherMod(mod_id, str(raw.get("name", mod_id)), str(raw.get("description", "")),
                        path.parent, environment, options, bool(raw.get("enabled_by_default", False)),
-                       raw.get("requires", {}), platforms)
+                       requires, platforms)
 
 
 def discover(cfg: Config) -> tuple[list[LauncherMod], list[str]]:
