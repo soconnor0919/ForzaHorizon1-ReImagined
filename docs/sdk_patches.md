@@ -22,3 +22,9 @@ project's alone):
 0037 is in `librexruntime.so`, so the overlay carries a patched runtime (as for 0028).
 Without it the game falls back on its own: `src/hooks/frame_time.cpp` reads the setting's
 range and uses a divider of one when twice the frame rate does not fit.
+
+0048 adds the built-in ultrawide source-aspect and HUD viewport controls for Vulkan
+and D3D12. It is independent of the DLSS changes and is driven directly by the
+game's window/projection hooks, without a plugin loader. See [Ultrawide](ultrawide.md).
+The presentation strategy is adapted from Pinyon Shift; its BSD notice is retained
+in `patches/rexglue-sdk/LICENSE-Pinyon-Shift`.
