@@ -12,11 +12,11 @@ these are shared-load measurements, not uncontended hardware benchmarks.
 
 | Runtime | Ultrawide loaded | Guest FPS | Present FPS | Present p99 (ms) |
 | --- | --- | ---: | ---: | ---: |
-| SDK rebuilt without patch 0042 | Yes | 37.5 | 18.8 | 61.8 |
-| Same SDK build with patch 0042 | Yes | 36.6 | 36.5 | 35.5 |
+| SDK rebuilt without patch 0044 | Yes | 37.5 | 18.8 | 61.8 |
+| Same SDK build with patch 0044 | Yes | 36.6 | 36.5 | 35.5 |
 | Same patched runtime | No | 37.7 | 37.7 | 34.2 |
 
-The first two runtime DLLs differ only by patch 0042. Without it, the presenter
+The first two runtime DLLs differ only by patch 0044. Without it, the presenter
 never records the format of its output pipeline, so the next paint waits for its
 previous submission, destroys the pipeline and creates it again. Diagnostics
 recorded at least 3,100 host graphics pipeline creations in the unfixed 75-second run;
