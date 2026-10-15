@@ -1,6 +1,10 @@
 # Performance
 
-## Native NVIDIA reconstruction, 2026-10-15
+## Native NVIDIA reconstruction, 2026-10-15 (before review fixes)
+
+These measurements predate the scene/HUD shader-cache correction. They are
+historical bring-up results, not performance validation of the corrected renderer.
+A new matched performance comparison is still needed.
 
 Windows, RTX 5060 Ti, Vulkan, 2560x1440 output, 120 FPS cap and 16x anisotropic
 filtering. Each isolated run loaded a fresh copy of the same profile at the opening
