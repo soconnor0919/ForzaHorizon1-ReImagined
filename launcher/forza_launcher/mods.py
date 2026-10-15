@@ -316,7 +316,9 @@ def apply(cfg: Config, env: dict, notes: list, write=True):
                 rendered = value.format_map(values)
             except (KeyError, ValueError) as e:
                 raise RuntimeError(f"{mod.name} has an invalid environment value for {key}.") from e
-            if key in env and env[key] != rendered:
+            if key == "FORZA_NATIVE_MODS" and env.get(key):
+                rendered = env[key] + os.pathsep + rendered
+            elif key in env and env[key] != rendered:
                 notes.append(f"{mod.name} replaces {key} set by an earlier launcher option or mod.")
             env[key] = rendered
         notes.append(f"Loaded mod: {mod.name}.")

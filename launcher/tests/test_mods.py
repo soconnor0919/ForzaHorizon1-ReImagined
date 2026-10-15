@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 import zipfile
@@ -42,6 +43,16 @@ class ModTests(unittest.TestCase):
         manifest.update(changes)
         (folder / "mod.json").write_text(json.dumps(manifest), encoding="utf-8")
         return folder
+
+    def test_multiple_native_mods_are_loaded_together(self):
+        for name in ("first", "second"):
+            folder = self.add_mod(name, environment={"FORZA_NATIVE_MODS": "{mod_dir}/plugin.dll"})
+            mods.set_enabled(self.cfg, mods.load_manifest(folder / "mod.json"), True)
+        environment, notes = {}, []
+        mods.apply(self.cfg, environment, notes)
+        libraries = environment["FORZA_NATIVE_MODS"].split(os.pathsep)
+        self.assertEqual(libraries, [str((self.root / "mods" / name).resolve()) + "/plugin.dll"
+                                     for name in ("first", "second")])
 
     def test_discovers_applies_and_persists_mod_settings(self):
         folder = self.add_mod()
