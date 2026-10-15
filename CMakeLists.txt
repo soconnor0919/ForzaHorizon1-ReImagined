@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.25)
+project(reimagined_ultrawide LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+add_library(ultrawide SHARED src/ultrawide.cpp)
+target_include_directories(ultrawide PRIVATE include)
+set_target_properties(ultrawide PROPERTIES PREFIX "")
+install(TARGETS ultrawide RUNTIME DESTINATION . LIBRARY DESTINATION .)
+install(FILES mod.json ultrawide.ini README.md LICENSE LICENSE-ReImagined DESTINATION .)

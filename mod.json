@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "id": "ultrawide",
+  "name": "Ultrawide",
+  "description": "Widens the gameplay camera to the window's aspect ratio and keeps the HUD centered with correct proportions. Requires the experimental native-mod runtime and HUD graphics patch. No NVIDIA runtime is required.",
+  "platforms": ["windows"],
+  "enabled_by_default": false,
+  "requires": {"settings": {"gpu_backend": "vulkan"}},
+  "environment": {"FORZA_NATIVE_MODS": "{mod_dir}/ultrawide.dll"},
+  "options": [
+    {
+      "key": "center_hud", "label": "Keep HUD in the center", "type": "bool", "default": true,
+      "help": "Keeps HUD elements in a centered 16:9 area with their original proportions. Off stretches the HUD across the window. Takes effect on the next launch.",
+      "ini": {"file": "ultrawide.ini", "section": "Ultrawide", "key": "CenterHud"}
+    },
+    {
+      "key": "protect_menus", "label": "Preserve menu framing", "type": "bool", "default": true,
+      "help": "Returns the map, title screen and other non-gameplay screens to their original 16:9 presentation. Takes effect on the next launch.",
+      "ini": {"file": "ultrawide.ini", "section": "Ultrawide", "key": "ProtectMenus"}
+    }
+  ]
+}
