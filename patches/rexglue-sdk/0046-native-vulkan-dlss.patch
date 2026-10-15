@@ -1,3 +1,14 @@
+diff --git a/cmake/Fh1DlssCapabilities.cmake b/cmake/Fh1DlssCapabilities.cmake
+new file mode 100644
+index 0000000..b83c6f9
+--- /dev/null
++++ b/cmake/Fh1DlssCapabilities.cmake
+@@ -0,0 +1,5 @@
++# Run after linking, so the launcher can distinguish a native-NGX GPU library
++# from an older SDK overlay without executing the game or loading foreign DLLs.
++file(SHA256 "${FH1_GPU_DLL}" renderer_hash)
++file(WRITE "${FH1_CAPABILITIES}"
++    "{\"api\":1,\"renderer_sha256\":\"${renderer_hash}\"}\n")
 diff --git a/cmake/ForzaDlssSdk.cmake b/cmake/ForzaDlssSdk.cmake
 new file mode 100644
 index 0000000..668419d
@@ -227,7 +238,7 @@ index 34f7033..c4d9175 100644
    Path GetPath() const override { return path_; }
  
 diff --git a/src/graphics/CMakeLists.txt b/src/graphics/CMakeLists.txt
-index da7ae1a..003c196 100644
+index da7ae1a..137c42a 100644
 --- a/src/graphics/CMakeLists.txt
 +++ b/src/graphics/CMakeLists.txt
 @@ -45,6 +45,7 @@ set(REXGPU_XENOS_SPIRV_SOURCES
@@ -238,7 +249,7 @@ index da7ae1a..003c196 100644
      vulkan/command_processor.cpp
      vulkan/pipeline_cache.cpp
      vulkan/primitive_processor.cpp
-@@ -99,6 +100,21 @@ endif()
+@@ -99,6 +100,26 @@ endif()
  add_library(rexgpu-xenos SHARED ${REXGPU_XENOS_SOURCES})
  add_library(rex::gpu-xenos ALIAS rexgpu-xenos)
  
@@ -252,7 +263,12 @@ index da7ae1a..003c196 100644
 +        "${REXGLUE_DLSS_SDK}/lib/Windows_x86_64/x64/nvsdk_ngx_d.lib")
 +    add_custom_command(TARGET rexgpu-xenos POST_BUILD
 +        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${REXGLUE_DLSS_SDK}/LICENSE.txt"
-+            "$<TARGET_FILE_DIR:rexgpu-xenos>/NVIDIA-DLSS-LICENSE.txt")
++            "$<TARGET_FILE_DIR:rexgpu-xenos>/NVIDIA-DLSS-LICENSE.txt"
++        COMMAND ${CMAKE_COMMAND}
++            "-DFH1_GPU_DLL=$<TARGET_FILE:rexgpu-xenos>"
++            "-DFH1_CAPABILITIES=$<TARGET_FILE_DIR:rexgpu-xenos>/fh1-native-dlss.json"
++            -P "${REXGLUE_ROOT}/cmake/Fh1DlssCapabilities.cmake")
++    install(FILES "$<TARGET_FILE_DIR:rexgpu-xenos>/fh1-native-dlss.json" DESTINATION bin)
 +    install(FILES "${REXGLUE_DLSS_SDK}/LICENSE.txt"
 +        DESTINATION share/licenses/nvidia-dlss)
 +endif()

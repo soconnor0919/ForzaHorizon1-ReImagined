@@ -1,4 +1,5 @@
 import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -122,6 +123,18 @@ class RuntimeSetup(unittest.TestCase):
         self.assertEqual(dlss.session_status(plan), (True, "Driver unavailable; using native 1440p."))
         path.write_text("ready:")
         self.assertIsNone(dlss.session_status(plan))
+
+    def test_renderer_capability_is_bound_to_the_built_dll(self):
+        with self.assertRaisesRegex(RuntimeError, "does not include"):
+            dlss.check_renderer(self.root)
+        binary = self.root / "rexgpu-xenos.dll"
+        binary.write_bytes(b"native renderer")
+        metadata = {"api": 1, "renderer_sha256": hashlib.sha256(binary.read_bytes()).hexdigest()}
+        (self.root / "fh1-native-dlss.json").write_text(json.dumps(metadata))
+        dlss.check_renderer(self.root)
+        binary.write_bytes(b"older SDK overlay")
+        with self.assertRaisesRegex(RuntimeError, "updated SDK"):
+            dlss.check_renderer(self.root)
 
 
 if __name__ == "__main__":

@@ -224,9 +224,15 @@ class MainWindow(QMainWindow):
             self.play.show_message(msg, True)
             return
         self.settings.flush()
-        if dlss.enabled(self.cfg) and not dlss.ready(self.cfg):
-            self._prepare_dlss()
-            return
+        if dlss.enabled(self.cfg):
+            try:
+                dlss.check_renderer(install.dir)
+            except RuntimeError as error:
+                self.play.show_message(str(error), True, keep=True)
+                return
+            if not dlss.ready(self.cfg):
+                self._prepare_dlss()
+                return
         try:
             plan = game.build_plan(self.cfg, install, write=True, log=lambda t: self.status(t))
             session = game.Session(plan)
@@ -246,6 +252,7 @@ class MainWindow(QMainWindow):
     def _prepare_dlss(self):
         from .workers import Task
         from types import SimpleNamespace
+        from ..installer import InstallError
 
         # Settings remain editable while the worker runs. Pin this download to
         # the data folder selected when Play was pressed.
@@ -253,10 +260,13 @@ class MainWindow(QMainWindow):
         download_cfg = SimpleNamespace(data_home=lambda: home)
 
         def run(task):
-            dlss.prepare(download_cfg,
-                         lambda done, total: task.progress.emit(done / total if total else 0,
-                                                               "Downloading NVIDIA DLSS"),
-                         task.cancelled)
+            try:
+                dlss.prepare(download_cfg,
+                             lambda done, total: task.progress.emit(done / total if total else 0,
+                                                                   "Downloading NVIDIA DLSS"),
+                             task.cancelled)
+            except (OSError, RuntimeError) as error:
+                raise InstallError(str(error)) from error
             return "NVIDIA DLSS is ready."
 
         task = Task(run, "set up NVIDIA DLSS")

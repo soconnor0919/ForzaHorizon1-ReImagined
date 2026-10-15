@@ -1,5 +1,26 @@
 # Performance
 
+## Native NVIDIA reconstruction, 2026-10-15
+
+Windows, RTX 5060 Ti, Vulkan, 2560x1440 output, 120 FPS cap and 16x anisotropic
+filtering. Each isolated run loaded a fresh copy of the same profile at the opening
+spawn, with the car stationary. The table uses guest-frame CSV samples from seconds
+55–70 after startup. No FH2 process was running in this set. These are one-scene
+measurements, not a race benchmark or a guarantee of 120 FPS.
+
+| Mode | Scene input | HUD | Guest FPS | Guest p99 (ms) |
+| --- | --- | --- | ---: | ---: |
+| Native | 2560x1440 | 2560x1440 | 52.2 | 20.7 |
+| DLSS Performance | 1280x720 | 2560x1440 | 88.2 | 13.0 |
+| DLAA | 2560x1440 | 2560x1440 | 49.6 | 21.6 |
+
+The earlier proxy rendered the scene at full resolution and downsampled it before
+DLSS. The native path instead uses a separate 1x scene cache, game depth/object
+reprojection, and viewport jitter, and reconstructs before the native HUD draws.
+These measurements use the corrected tonemapped-input flag and include the public
+main changes through `cc638e7`. All three runs have zero scene-transfer failures;
+the NVIDIA runs also have zero feature/evaluation failures. See [Native DLSS](native_dlss.md) for scope and known issues.
+
 ## Windows native-mod check, 2026-10-14
 
 RTX 5060 Ti, Vulkan, 2560x1440 fullscreen output, render scale 2, 120 FPS cap,
@@ -12,11 +33,11 @@ these are shared-load measurements, not uncontended hardware benchmarks.
 
 | Runtime | Ultrawide loaded | Guest FPS | Present FPS | Present p99 (ms) |
 | --- | --- | ---: | ---: | ---: |
-| SDK rebuilt without patch 0044 | Yes | 37.5 | 18.8 | 61.8 |
-| Same SDK build with patch 0044 | Yes | 36.6 | 36.5 | 35.5 |
+| SDK rebuilt without patch 0045 | Yes | 37.5 | 18.8 | 61.8 |
+| Same SDK build with patch 0045 | Yes | 36.6 | 36.5 | 35.5 |
 | Same patched runtime | No | 37.7 | 37.7 | 34.2 |
 
-The first two runtime DLLs differ only by patch 0044. Without it, the presenter
+The first two runtime DLLs differ only by patch 0045. Without it, the presenter
 never records the format of its output pipeline, so the next paint waits for its
 previous submission, destroys the pipeline and creates it again. Diagnostics
 recorded at least 3,100 host graphics pipeline creations in the unfixed 75-second run;

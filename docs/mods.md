@@ -1,5 +1,8 @@
 # Launcher mods
 
+Native NVIDIA DLSS/DLAA is configured under **Settings > Display**, with automatic
+runtime setup. It does not require a mod package; see [Native DLSS](native_dlss.md).
+
 The launcher discovers optional mods in `<game data folder>/mods`. Each mod has its own folder
 containing a `mod.json` manifest. Mods can add environment variables to the game process and expose
 settings backed by an INI file in that folder. They cannot execute code in the launcher or replace
@@ -58,7 +61,7 @@ The separate Ultrawide example package uses these hooks and an INI file for its 
 It does not require NVIDIA libraries. An upstream runtime that lacks the native interface will
 not load it; the mod also rejects hosts missing its required HUD graphics capability.
 
-Use SDK patch 0044 with the native runtime builds: it caches the Vulkan output pipeline's
+Use SDK patch 0045 with the native runtime builds: it caches the Vulkan output pipeline's
 format instead of destroying and recreating the pipeline at every present. This fix benefits
 both modded and unmodded rendering. A 1440p output preset alone does not increase FH1's
 internal 720p render targets; use render scale 2 for a 2560x1440 guest output image.

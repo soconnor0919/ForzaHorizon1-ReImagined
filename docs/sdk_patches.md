@@ -22,3 +22,9 @@ project's alone):
 0037 is in `librexruntime.so`, so the overlay carries a patched runtime (as for 0028).
 Without it the game falls back on its own: `src/hooks/frame_time.cpp` reads the setting's
 range and uses a divider of one when twice the frame rate does not fit.
+
+The native-mod development branch also carries 0041 (HUD horizontal scale),
+0044 (Windows SDK build support), 0045 (cache the Vulkan present pipeline's output
+format), and 0046 (native Windows Vulkan DLSS/DLAA with separate scene/UI rendering).
+The public spatial FSR/CAS patch keeps number 0043. See [Native DLSS](native_dlss.md)
+for NVIDIA SDK/runtime setup, licensing and current validation limits.

@@ -4,6 +4,7 @@ No system-wide installation or DLL search-path changes. The renderer receives
 the private runtime folder for NGX's explicit feature search path.
 """
 import os
+import json
 import shutil
 import tempfile
 import uuid
@@ -30,6 +31,20 @@ def runtime_dir(cfg) -> Path:
 
 def enabled(cfg) -> bool:
     return cfg.settings.get("fh1_upscaler", "off") != "off"
+
+
+def check_renderer(folder):
+    """An older SDK overlay must not silently ignore the native settings."""
+    try:
+        folder = Path(folder)
+        capabilities = json.loads((folder / "fh1-native-dlss.json").read_text(encoding="utf-8"))
+        valid = (isinstance(capabilities, dict) and capabilities.get("api") == 1 and
+                 capabilities.get("renderer_sha256") == fetch.sha256_of(folder / "rexgpu-xenos.dll"))
+    except (OSError, ValueError):
+        valid = False
+    if not valid:
+        raise RuntimeError("This game build does not include the native DLSS renderer. "
+                           "Rebuild with this branch's updated SDK, or turn NVIDIA DLSS off.")
 
 
 def configure(cfg, env, args, notes, write=True):

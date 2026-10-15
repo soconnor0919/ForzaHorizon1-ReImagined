@@ -291,6 +291,8 @@ def build_plan(cfg: Config, game: GameInstall, write=True, refresh_xenia=False, 
 
     # Declarative mods may add launch-only environment variables and update their own INI files.
     # Advanced environment variables remain the final override below.
+    if dlss.enabled(cfg):
+        dlss.check_renderer(game.dir)
     mods.apply(cfg, env, notes, write)
     dlss.configure(cfg, env, args, notes, write)
 

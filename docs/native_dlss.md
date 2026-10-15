@@ -1,0 +1,53 @@
+# Native NVIDIA reconstruction (Windows development branch)
+
+Settings > Display > NVIDIA DLSS offers Off, Performance (720p to 1440p), and
+DLAA (native 1440p). These modes use NVIDIA's NGX Vulkan implementation on a
+supported RTX GPU and driver. They are separate from the presenter's spatial
+upscaling filter and from the earlier experimental ReShade mod.
+
+On first Play, the launcher downloads the runtime and its license directly from
+NVIDIA's public DLSS SDK, verifies pinned SHA-256 hashes, and stores them under
+`<data folder>/graphics/nvidia-dlss/<SDK revision>`. Later launches reuse verified
+files offline; changed or incomplete files are downloaded again. The download
+runs in the background and can be cancelled. No manual DLL copying or system
+installation is needed. Enabling this option disables the older `nvidia-dlss` mod.
+
+Both modes select Vulkan, a 1440p output, and render scale 2 for the UI. Performance
+uses a separate 1x scene render-target and texture cache, then reconstructs the
+1280x720 scene into the native 2560x1440 target before HUD draws. DLAA keeps the
+scene at 2560x1440 and uses NGX's DLAA mode. The existing 2x texture cache is shared
+in DLAA so scaled resolves remain coherent. Small title-screen intermediate
+targets do not trigger the scene/UI split; a depth-only HUD draw defers the transfer
+until its color attachment exists.
+
+Depth and camera/object reprojection come from the game's resolved depth/stencil
+texture and the constants of its `PPMotionBlurDepthHorizonVel` pass. A compute pass
+reconstructs pixel motion without that shader's motion-blur scaling or clamping.
+The viewport receives a subpixel jitter on main-scene depth draws; the HUD and
+post-processing viewports do not. NGX executes on the Vulkan submission thread,
+with its frame inputs copied into the deferred command stream. Guest pipeline and
+descriptor bindings are invalidated afterward. Input is the tonemapped scene,
+so the NGX HDR-input flag is not set.
+
+The launcher reports active reconstruction only after the renderer successfully
+evaluates a frame. If NGX cannot initialize, the game keeps native 1440p rendering
+and reports the failure. If feature creation or evaluation fails later, it reports
+the temporary bilinear fallback and asks the player to disable DLSS and restart
+for native rendering. Details remain in the game log.
+
+SDK patch 0046 contains the renderer integration. Windows SDK builds fetch pinned
+NGX headers, the static loader and its license automatically. An existing local
+SDK may be selected with `REXGLUE_DLSS_SDK`; `REXGLUE_USE_DLSS=OFF` builds without
+NGX. The NVIDIA SDK license is copied beside the GPU DLL and into the SDK's license
+directory. NVIDIA binaries are not committed to this repository. The pinned SDK
+revision is `374959484e79a640feaba44c93ac8cfb0a03f5b5`; its
+[license](https://github.com/NVIDIA/DLSS/blob/374959484e79a640feaba44c93ac8cfb0a03f5b5/LICENSE.txt)
+applies to those components.
+
+This remains a development integration limited to 16:9 1440p output. Gameplay,
+title-screen startup and native HUD composition have been exercised locally;
+camera cuts, transparency and all race/menu transitions need broader testing.
+Traffic cars can still blow out into white/cyan/magenta on this NVIDIA machine,
+including with DLSS disabled. A pre-blend 7e3 clamp did not fix that bug and was
+reverted. A RenderDoc capture of the affected traffic scene is available locally
+for the separate rendering investigation; this integration does not claim to fix it.
