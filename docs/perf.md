@@ -1,5 +1,49 @@
 # Performance
 
+## Windows native-mod check, 2026-10-14
+
+RTX 5060 Ti, Vulkan, 2560x1440 fullscreen output, render scale 2, 120 FPS cap,
+16x anisotropic filtering, DLSS disabled. Each run loaded a fresh copy of the same
+profile and left the car stationary at the opening "Drive to the festival" spawn.
+The table uses per-frame CSV samples from seconds 55–70, after startup compilation
+and the capture at about 50 seconds. The captured guest image, before window scaling,
+was 2560x1440. An unrelated FH2 test remained running at the user's request:
+these are shared-load measurements, not uncontended hardware benchmarks.
+
+| Runtime | Ultrawide loaded | Guest FPS | Present FPS | Present p99 (ms) |
+| --- | --- | ---: | ---: | ---: |
+| SDK rebuilt without patch 0042 | Yes | 37.5 | 18.8 | 61.8 |
+| Same SDK build with patch 0042 | Yes | 36.6 | 36.5 | 35.5 |
+| Same patched runtime | No | 37.7 | 37.7 | 34.2 |
+
+The first two runtime DLLs differ only by patch 0042. Without it, the presenter
+never records the format of its output pipeline, so the next paint waits for its
+previous submission, destroys the pipeline and creates it again. Diagnostics
+recorded at least 3,100 host graphics pipeline creations in the unfixed 75-second run;
+the patched run stopped repeatedly creating that pipeline. Presentations then kept
+pace with guest frames. This fixes frame delivery, not the remaining render-time
+limit: it did not achieve 120 FPS under this shared load.
+
+Allowing Vulkan MAILBOX instead of FIFO did not materially improve throughput, so
+the presentation defaults were retained. Further checks used a 2560x1080 wide window
+while retaining the 2560x1440 internal image: the mod changed the main-view aspect
+from 1.777778 to 2.370370 and retained frame delivery. FH2 restarted during this wider
+test, so its off/on FPS values are not used to claim a camera-performance improvement.
+
+At 16:9 the mod's camera widening is inactive; the first table isolates callback and
+presentation overhead there. The wide-window check is separate, and the mod still
+does not allocate native ultrawide render targets. The output-resolution preset and
+the internal render scale are separate settings; 1440p output with scale 1 renders
+the original 720p targets.
+
+After installation, a final 16:9 run with the saved 1440p/scale-2/120 configuration
+recorded 46.2 guest FPS and 46.1 present FPS (present p99 29.9 ms, same sample window).
+The host counter recorded one graphics pipeline. Background FH2 load changed during
+the overall session; this later absolute FPS is validation, not an additional claimed
+gain over the matched A/B table.
+
+## Frame statistics
+
 Frame statistics use the same definitions as RecompiledHaloReach so the two projects
 compare (`src/debug/frame_stats.cpp`, enabled with `RECOMP_PERF=1`):
 
