@@ -5,8 +5,8 @@ the private runtime folder for NGX's explicit feature search path.
 """
 import os
 import json
-import shutil
-import tempfile
+import threading
+import re
 import uuid
 from pathlib import Path
 
@@ -25,6 +25,28 @@ pins.DOWNLOADS.update({
 })
 
 
+_hash_cache = {}
+_hash_lock = threading.Lock()
+
+
+def _sha256(path):
+    path = Path(path).resolve()
+    stat = path.stat()
+    identity = (stat.st_mtime_ns, stat.st_size, stat.st_ctime_ns, stat.st_ino)
+    with _hash_lock:
+        cached = _hash_cache.get(path)
+        if cached and cached[0] == identity:
+            return cached[1]
+        digest = fetch.sha256_of(path)
+        # Do not cache a digest for a file changed while it was being read.
+        after = path.stat()
+        if identity == (after.st_mtime_ns, after.st_size, after.st_ctime_ns, after.st_ino):
+            if len(_hash_cache) >= 128:
+                _hash_cache.clear()
+            _hash_cache[path] = (identity, digest)
+        return digest
+
+
 def runtime_dir(cfg) -> Path:
     return cfg.data_home() / "graphics" / "nvidia-dlss" / SDK_REVISION
 
@@ -39,7 +61,7 @@ def check_renderer(folder):
         folder = Path(folder)
         capabilities = json.loads((folder / "fh1-native-dlss.json").read_text(encoding="utf-8"))
         valid = (isinstance(capabilities, dict) and capabilities.get("api") == 1 and
-                 capabilities.get("renderer_sha256") == fetch.sha256_of(folder / "rexgpu-xenos.dll"))
+                 capabilities.get("renderer_sha256") == _sha256(folder / "rexgpu-xenos.dll"))
     except (OSError, ValueError):
         valid = False
     if not valid:
@@ -84,8 +106,8 @@ def session_status(plan):
 def ready(cfg) -> bool:
     folder = runtime_dir(cfg)
     try:
-        return (fetch.sha256_of(folder / "nvngx_dlss.dll") == RUNTIME_SHA256 and
-                fetch.sha256_of(folder / "LICENSE.txt") == LICENSE_SHA256)
+        return (_sha256(folder / "nvngx_dlss.dll") == RUNTIME_SHA256 and
+                _sha256(folder / "LICENSE.txt") == LICENSE_SHA256)
     except OSError:
         return False
 
@@ -96,20 +118,50 @@ def prepare(cfg, progress=lambda done, total: None, cancelled=lambda: False) -> 
         raise RuntimeError("This DLSS integration currently supports Windows only.")
     dest = runtime_dir(cfg)
     if ready(cfg):
+        _remove_download_copies(cfg)
         return dest
     cache = cfg.data_home() / "downloads" / "nvidia-dlss" / SDK_REVISION
     assets = [("dlss-runtime-windows", "nvngx_dlss.dll"), ("dlss-license", "LICENSE.txt")]
     # Verify every asset before replacing any installed file.
-    sources = [(fetch.download(key, cache, progress, cancelled), name) for key, name in assets]
+    sources = []
+    for key, name in assets:
+        target = dest / name
+        expected = RUNTIME_SHA256 if name == "nvngx_dlss.dll" else LICENSE_SHA256
+        try:
+            valid = _sha256(target) == expected
+        except OSError:
+            valid = False
+        sources.append((target if valid else fetch.download(key, cache, progress, cancelled), name))
     dest.mkdir(parents=True, exist_ok=True)
     for source, name in sources:
         if cancelled():
             raise fetch.Cancelled()
-        fd, temporary = tempfile.mkstemp(dir=dest, prefix=name + ".")
-        try:
-            with os.fdopen(fd, "wb") as out, open(source, "rb") as incoming:
-                shutil.copyfileobj(incoming, out)
-            os.replace(temporary, dest / name)
-        finally:
-            Path(temporary).unlink(missing_ok=True)
+        target = dest / name
+        if source != target:
+            os.replace(source, target)
+        # fetch.download already verified this exact file before the atomic move.
+        stat = target.stat()
+        digest = RUNTIME_SHA256 if name == "nvngx_dlss.dll" else LICENSE_SHA256
+        with _hash_lock:
+            _hash_cache[target.resolve()] = ((stat.st_mtime_ns, stat.st_size,
+                                             stat.st_ctime_ns, stat.st_ino), digest)
+    _remove_download_copies(cfg)
     return dest
+
+
+def _remove_download_copies(cfg):
+    cache = cfg.data_home() / "downloads" / "nvidia-dlss" / SDK_REVISION
+    for name in ("nvngx_dlss.dll", "LICENSE.txt"):
+        (cache / name).unlink(missing_ok=True)
+
+
+def cleanup_status(plan):
+    # Only remove our own generated status file, never an arbitrary extra-env path.
+    value = getattr(plan, "dlss_status_file", None)
+    if value:
+        path = Path(value)
+        if re.fullmatch(r"nvidia-dlss-[0-9a-f]{32}\.status", path.name):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass

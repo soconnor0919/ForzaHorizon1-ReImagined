@@ -29,6 +29,7 @@ class MainWindow(QMainWindow):
         self._dlss_session_status = None
         self._busy = False
         self._dlss_task = None
+        self._dlss_prepared = None
         self._dlss_result = (False, "")
         self._close_after_dlss = False
         self.setWindowTitle(APP_NAME)
@@ -231,15 +232,11 @@ class MainWindow(QMainWindow):
             self.play.show_message(msg, True)
             return
         self.settings.flush()
-        if dlss.enabled(self.cfg):
-            try:
-                dlss.check_renderer(install.dir)
-            except RuntimeError as error:
-                self.play.show_message(str(error), True, keep=True)
-                return
-            if not dlss.ready(self.cfg):
-                self._prepare_dlss()
-                return
+        preparation = (self.cfg.data_home(), install.dir, self.cfg.settings.get("fh1_upscaler"))
+        if dlss.enabled(self.cfg) and self._dlss_prepared != preparation:
+            self._prepare_dlss(install.dir)
+            return
+        self._dlss_prepared = None
         try:
             plan = game.build_plan(self.cfg, install, write=True, log=lambda t: self.status(t))
             session = game.Session(plan)
@@ -256,31 +253,39 @@ class MainWindow(QMainWindow):
         self.poll.start()
         self.play.refresh()
 
-    def _prepare_dlss(self):
+    def _prepare_dlss(self, renderer_folder=None):
         from .workers import Task
         from types import SimpleNamespace
         from ..installer import InstallError
+        from ..fetch import Cancelled
 
         # Settings remain editable while the worker runs. Pin this download to
         # the data folder selected when Play was pressed.
         home = self.cfg.data_home()
         download_cfg = SimpleNamespace(data_home=lambda: home)
 
+        preparation = (home, renderer_folder, self.cfg.settings.get("fh1_upscaler"))
+
         def run(task):
             try:
+                if renderer_folder is not None:
+                    dlss.check_renderer(renderer_folder)
                 dlss.prepare(download_cfg,
                              lambda done, total: task.progress.emit(done / total if total else 0,
                                                                    "Downloading NVIDIA DLSS"),
                              task.cancelled)
+                if task.cancelled():
+                    raise Cancelled()
             except (OSError, RuntimeError) as error:
                 raise InstallError(str(error)) from error
             return "NVIDIA DLSS is ready."
 
         task = Task(run, "set up NVIDIA DLSS")
         self._dlss_task = task
+        self._dlss_preparing = preparation
         self._dlss_result = (False, "DLSS setup did not finish.")
         self.play.play.setEnabled(False)
-        self.play.show_message("Setting up NVIDIA DLSS. This first download is about 56 MB.")
+        self.play.show_message("Checking NVIDIA DLSS. First use downloads about 56 MB.")
         task.progress.connect(lambda fraction, _detail: self.status(
             f"Downloading NVIDIA DLSS… {fraction:.0%}"))
         task.done.connect(self._dlss_download_done)
@@ -295,14 +300,17 @@ class MainWindow(QMainWindow):
         task, self._dlss_task = self._dlss_task, None
         task.deleteLater()
         self.play.play.setEnabled(True)
+        self.play.refresh()
         if self._close_after_dlss:
             self.close()
             return
         ok, message = self._dlss_result
         self.status(message, not ok)
         if ok:
+            self._dlss_prepared = self._dlss_preparing
             self.start_game()
         else:
+            self._dlss_prepared = None
             self.play.show_message(f"Could not set up NVIDIA DLSS: {message}", True, keep=True)
 
     def stop_game(self):

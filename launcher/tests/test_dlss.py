@@ -28,7 +28,11 @@ class RuntimeSetup(unittest.TestCase):
         self.addCleanup(p.stop)
 
     def download(self, key, *_args):
-        return self.root / ("license" if key == "dlss-license" else "runtime")
+        cache = self.root / "downloads" / "nvidia-dlss" / dlss.SDK_REVISION
+        cache.mkdir(parents=True, exist_ok=True)
+        target = cache / ("LICENSE.txt" if key == "dlss-license" else "nvngx_dlss.dll")
+        target.write_bytes(self.license if key == "dlss-license" else self.dll)
+        return target
 
     def test_installs_both_assets_and_reuses_them_offline(self):
         with patch.object(dlss.fetch, "download", side_effect=self.download) as fetch:
@@ -125,6 +129,70 @@ class RuntimeSetup(unittest.TestCase):
         binary.write_bytes(b"older SDK overlay")
         with self.assertRaisesRegex(RuntimeError, "updated SDK"):
             dlss.check_renderer(self.root)
+
+    def test_runtime_install_keeps_only_one_copy(self):
+        with patch.object(dlss.fetch, "download", side_effect=self.download):
+            dest = dlss.prepare(self.cfg)
+        copies = list(self.root.rglob("nvngx_dlss.dll"))
+        self.assertEqual(copies, [dest / "nvngx_dlss.dll"])
+
+    def test_hash_cache_reuses_unchanged_file_and_detects_changes(self):
+        binary = self.root / "runtime"
+        with patch.object(dlss.fetch, "sha256_of", wraps=dlss.fetch.sha256_of) as sha:
+            original = dlss._sha256(binary)
+            self.assertEqual(dlss._sha256(binary), original)
+            self.assertEqual(sha.call_count, 1)
+            binary.write_bytes(b"replacement runtime")
+            self.assertNotEqual(dlss._sha256(binary), original)
+            self.assertEqual(sha.call_count, 2)
+
+    def test_settings_preview_does_not_hash_or_verify_runtime(self):
+        from forza_launcher.config import Config
+        from forza_launcher import game
+        cfg = Config(self.root / "launcher.json")
+        cfg.advanced["data_root"] = str(self.root)
+        cfg.online["mode"] = "offline"
+        cfg.settings["fh1_upscaler"] = "dlss"
+        install = game.GameInstall(self.root, self.root / "forza.exe")
+        with patch.object(dlss, "check_renderer", side_effect=AssertionError("verified during preview")), \
+             patch.object(dlss, "_sha256", side_effect=AssertionError("hashed during preview")):
+            game.build_plan(cfg, install, write=False)
+
+    def test_session_cleanup_removes_generated_status_only(self):
+        status = self.root / ("nvidia-dlss-" + "a" * 32 + ".status")
+        status.write_text("ready: DLSS active.")
+        plan = SimpleNamespace(env={"FORZA_DLSS_STATUS_FILE": str(status)}, dlss_status_file=status)
+        dlss.cleanup_status(plan)
+        self.assertFalse(status.exists())
+        other = self.root / "user-status.txt"
+        other.write_text("keep")
+        plan.env["FORZA_DLSS_STATUS_FILE"] = str(other)
+        plan.dlss_status_file = None
+        dlss.cleanup_status(plan)
+        self.assertTrue(other.exists())
+
+    def test_windows_package_carries_renderer_metadata_and_notice(self):
+        import shutil
+        import subprocess
+        bash = shutil.which("bash")
+        if dlss.paths.IS_WINDOWS:
+            git_bash = Path("C:/Program Files/Git/bin/bash.exe")
+            bash = str(git_bash) if git_bash.is_file() else None
+        if not bash:
+            self.skipTest("bash is unavailable")
+        prefix, dest = self.root / "prefix", self.root / "dist"
+        (prefix / "bin").mkdir(parents=True)
+        (prefix / "share/licenses/nvidia-dlss").mkdir(parents=True)
+        (dest / "licenses").mkdir(parents=True)
+        (prefix / "bin/fh1-native-dlss.json").write_text('{"api":1}')
+        (prefix / "share/licenses/nvidia-dlss/LICENSE.txt").write_text("notice")
+        script = (Path(__file__).resolve().parents[2] / "tools/build_windows.sh").read_text()
+        begin = script.index("# Native NGX capability")
+        end = script.index('cp "$ROOT/tools/xcontent_extract.py"', begin)
+        subprocess.run([bash, "-c", 'set -e; PREFIX="$1"; DIST="$2";\n' + script[begin:end],
+                        "--", prefix.as_posix(), dest.as_posix()], check=True)
+        self.assertEqual((dest / "fh1-native-dlss.json").read_text(), '{"api":1}')
+        self.assertEqual((dest / "licenses/NVIDIA-DLSS.txt").read_text(), "notice")
 
 
 if __name__ == "__main__":
