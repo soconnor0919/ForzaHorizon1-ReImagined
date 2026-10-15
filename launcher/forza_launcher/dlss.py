@@ -55,6 +55,9 @@ def configure(cfg, env, args, notes, write=True):
         raise RuntimeError(f"Unknown NVIDIA reconstruction mode: {mode}")
     if not paths.IS_WINDOWS:
         raise RuntimeError("Native DLSS currently supports Windows only.")
+    if cfg.settings.get("forza_ultrawide"):
+        raise RuntimeError("Ultrawide and DLSS cannot be enabled together in this local integration. "
+                           "Choose ultrawide or 16:9 DLSS/DLAA in Display settings.")
     if write:
         prepare(cfg)
     env["FORZA_DLSS_RUNTIME"] = str(runtime_dir(cfg))

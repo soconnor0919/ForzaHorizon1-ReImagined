@@ -35,3 +35,8 @@ path produced checkerboard car reflections and bloom blowouts on the test RTX 50
 Ti. Explicit guest gradients and LOD remain unchanged; other GPU vendors retain
 their previous path. `vulkan_implicit_cube_lod=false` restores it for comparisons.
 See [Rendering issues](rendering.md#nvidia-car-reflection-sampling-2026-10-15).
+0048 adds the built-in ultrawide source-aspect and HUD viewport controls for Vulkan
+and D3D12. It is independent of the DLSS changes and is driven directly by the
+game's window/projection hooks, without a plugin loader. See [Ultrawide](ultrawide.md).
+The presentation strategy is adapted from Pinyon Shift; its BSD notice is retained
+in `patches/rexglue-sdk/LICENSE-Pinyon-Shift`.

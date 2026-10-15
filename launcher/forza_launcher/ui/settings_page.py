@@ -5,7 +5,7 @@ from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog,
                                QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPlainTextEdit,
-                               QMessageBox, QPushButton, QRadioButton, QScrollArea, QSpinBox, QStackedWidget,
+                               QMessageBox, QPushButton, QRadioButton, QScrollArea, QSlider, QSpinBox, QStackedWidget,
                                QVBoxLayout, QWidget)
 
 from .. import PUBLIC_SERVER, game, gpu, schema
@@ -44,9 +44,45 @@ DEPENDS = {  # key -> the bool setting that must be on for it to matter
 }
 
 
+class HudSlider(QWidget):
+    valueChanged = Signal(float)
+
+    def __init__(self, low, high, value):
+        super().__init__()
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setRange(int(low), int(high))
+        self.number = QSpinBox()
+        self.number.setRange(int(low), int(high))
+        self.number.setSuffix(" %")
+        layout.addWidget(self.slider, 1)
+        layout.addWidget(self.number)
+        self.setMinimumWidth(270)
+        self.slider.setValue(int(value))
+        self.number.setValue(int(value))
+        self.slider.valueChanged.connect(self._changed)
+        self.number.valueChanged.connect(self.slider.setValue)
+
+    def _changed(self, value):
+        self.number.blockSignals(True)
+        self.number.setValue(value)
+        self.number.blockSignals(False)
+        self.valueChanged.emit(float(value))
+
+    def setValue(self, value):
+        self.slider.setValue(int(value))
+
+
 def make_control(s: schema.Setting, value, on_change, note=None):
     """A widget for the setting, calling on_change(value) when the player changes it. note(value)
     may return a reason that is appended to a choice's label (a GPU's known problem, #52)."""
+    if s.kind == "float" and s.key.startswith("forza_hud_"):
+        w = HudSlider(s.lo, s.hi, value)
+        w.slider.setAccessibleName(s.label)
+        w.number.setAccessibleName(s.label + " value")
+        w.valueChanged.connect(on_change)
+        return w
     if s.kind == "bool":
         w = Switch()
         w.setChecked(bool(value))
@@ -200,6 +236,19 @@ class SettingsPage(QWidget):
     # --- plumbing -------------------------------------------------------------------
     def set_value(self, key, value):
         self.cfg.settings[key] = schema.coerce(schema.BY_KEY[key], value)
+        conflict = ("forza_ultrawide", False) if key == "fh1_upscaler" and value != "off" else (
+            ("fh1_upscaler", "off") if key == "forza_ultrawide" and value else None)
+        if conflict:
+            other, fixed = conflict
+            self.cfg.settings[other] = fixed
+            row = self.rows.get(other)
+            if row:
+                row.control.blockSignals(True)
+                if other == "forza_ultrawide":
+                    row.control.setChecked(False)
+                else:
+                    row.control.setCurrentIndex(row.control.findData("off"))
+                row.control.blockSignals(False)
         if key == "fh1_upscaler" and value != "off":
             for dep, fixed in (("gpu_backend", "vulkan"), ("resolution", "1440p"), ("resolution_scale", 2)):
                 self.cfg.settings[dep] = fixed
@@ -234,6 +283,9 @@ class SettingsPage(QWidget):
             if key in self.rows:
                 self.rows[key].control.setEnabled(self.cfg.settings.get("fh1_upscaler", "off") == "off")
         self._refresh_gpu_warnings()
+        for key in ("forza_hud_safe_width", "forza_hud_safe_height", "forza_hud_offset_x", "forza_hud_offset_y"):
+            if key in self.rows:
+                self.rows[key].control.setEnabled(bool(self.cfg.settings.get("forza_hud_layout")))
         for key, dep in DEPENDS.items():
             row = self.rows.get(key)
             if row:

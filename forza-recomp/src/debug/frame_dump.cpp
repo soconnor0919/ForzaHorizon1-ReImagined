@@ -30,6 +30,7 @@
 // can be caught by hand while watching periodic frame dumps; load times vary
 // too much between runs for fixed times to land on the same shot.
 
+#include "../platform/ultrawide.h"
 #include "../platform/guest_memory.h"
 #include "../platform/sdk_import.h"
 #include "frame_stats.h"
@@ -265,6 +266,7 @@ extern "C" REX_FUNC(__imp__VdSwap) {
   const double elapsed =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
   forza::perf::OnGuestFrame();
+  forza::ultrawide::Frame();
   MaybeTriggerRenderDocCapture(elapsed);
   MaybeInvalidatePhysicalMemory(elapsed);
   static const bool fps_log = [] {

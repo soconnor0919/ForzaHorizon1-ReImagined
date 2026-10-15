@@ -67,6 +67,24 @@ add("video_driver", "Video driver", "Display", "choice", "",
     "SDL video driver. Automatic is right unless the window misbehaves.", "Window",
     choices=[("", "Automatic"), ("wayland", "Wayland"), ("x11", "X11")], platform="linux",
     restart=True)
+add("forza_ultrawide", "Ultrawide gameplay", "Display", "bool", False,
+    "Follow the window's aspect ratio with a wider horizontal view. Menus and map stay 16:9. "
+    "Allocates integer-scaled targets at least as large as the initial window; restart after resizing "
+    "to increase rendering detail. Requires the patched SDK.", "Ultrawide and HUD", restart=True)
+add("forza_hud_layout", "Customize HUD layout", "Display", "bool", False,
+    "Adjust the HUD safe area and position at 16:9 or ultrawide, without changing the camera. "
+    "Applies on the next game launch.", "Ultrawide and HUD", restart=True)
+add("forza_hud_safe_width", "HUD safe width %", "Display", "float", 100.0,
+    "Fit the centered 16:9 HUD within this width. The smaller safe-area percentage sets the "
+    "uniform scale, keeping gauges and text proportional.", "Ultrawide and HUD", lo=50, hi=100, step=1)
+add("forza_hud_safe_height", "HUD safe height %", "Display", "float", 100.0,
+    "Fit the HUD within this height. Applies during gameplay.", "Ultrawide and HUD", lo=50, hi=100, step=1)
+add("forza_hud_offset_x", "HUD horizontal position %", "Display", "float", 0.0,
+    "Move the HUD as a group: negative left, positive right. Clamped to keep it on screen.",
+    "Ultrawide and HUD", lo=-20, hi=20, step=1)
+add("forza_hud_offset_y", "HUD vertical position %", "Display", "float", 0.0,
+    "Move the HUD as a group: negative up, positive down. Clamped to keep it on screen.",
+    "Ultrawide and HUD", lo=-20, hi=20, step=1)
 add("resolution", "Resolution preset", "Display", "combo", "",
     "Guest video mode and window size in one: 720p, 1080p, 1440p, 4k or WxH. Empty keeps the "
     "defaults (1280x720 guest). The game still draws at 1280x720; Render scale sets the "
