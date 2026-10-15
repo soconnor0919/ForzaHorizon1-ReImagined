@@ -77,16 +77,14 @@ The launcher's own config is `~/.config/forza-reimagined/launcher.json`
 
 `launcher/forza_launcher/schema.py` lists every key (about 70) with its group, type, default,
 range and help text: Display (frame rate, vsync, fullscreen, window, resolution preset, render
-scale, filtering, FSR/CAS, FXAA, ...), Mods (local manifest packages installed from a folder or ZIP),
-Controls (keyboard and mouse `mnk_*` with the steering ramp, 25 keybinds,
+scale, filtering, FSR/CAS, FXAA, ...), Controls (keyboard and mouse `mnk_*` with the steering ramp, 25 keybinds,
 deadzones, vibration, `FORZA_PAD_PER_USER`), Audio, Online (server mode, live room, Horizon
 World switches), Profile (own save or a copy of a Xenia Canary save, gamertag, language),
 Advanced (log, GPU, game/data folders, extra command-line flags, environment variables,
 a free-form "other settings" box for any further `forza.toml` key, a live preview of the
 generated `forza.toml` and command line). Keys that hold their default are not written.
-The Mods page discovers `<data>/mods/*/mod.json`, keeps each package disabled until installed or
-explicitly enabled, and applies its launch environment and INI-backed options only to the game
-process. The manifest format and installation boundaries are documented in [`mods.md`](mods.md).
+On Windows, Display also offers native DLSS Performance and DLAA, with automatic
+NVIDIA runtime setup. See [`native_dlss.md`](native_dlss.md).
 Online: public (`dyotserver.ddns.net:21200`, written as `live_server` and `FORZA_SERVER`),
 local (the launcher starts the Forza Live server inside its own executable, or reuses one
 on port 21201, like `play.sh`), your own, or offline. The Xenia save logic is `play.sh --xenia`

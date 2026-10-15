@@ -28,7 +28,6 @@ def _default():
                      "accept_ms_license": False, "build_jobs": 0,
                      "blocked_root": "",       # a data folder the last build could not use (access denied, #38)
                      "data_root_asked": False},  # the player answered the offer to leave Documents\\forza
-        "mods": {"enabled": {}, "options": {}},
         "settings": {**schema.defaults(), **FIRST_RUN},
     }
 
@@ -72,22 +71,6 @@ class Config:
             return
         if isinstance(data, dict):
             _merge(self.d, data)
-            # Mod ids and option names are defined by installed manifests, so unlike the fixed
-            # launcher schema their dictionary keys cannot exist in _default() ahead of time.
-            raw_mods = data.get("mods", {})
-            self.d["mods"] = {"enabled": {}, "options": {}}
-            if isinstance(raw_mods, dict):
-                raw_enabled = raw_mods.get("enabled", {})
-                raw_options = raw_mods.get("options", {})
-                if isinstance(raw_enabled, dict):
-                    self.d["mods"]["enabled"] = {
-                        str(k): v for k, v in raw_enabled.items() if isinstance(v, bool)
-                    }
-                if isinstance(raw_options, dict):
-                    self.d["mods"]["options"] = {
-                        str(mod_id): {str(k): v for k, v in values.items()}
-                        for mod_id, values in raw_options.items() if isinstance(values, dict)
-                    }
             self.loaded = True
         for key, setting in schema.BY_KEY.items():
             self.d["settings"][key] = schema.coerce(setting, self.d["settings"].get(key))
@@ -117,10 +100,6 @@ class Config:
     @property
     def advanced(self):
         return self.d["advanced"]
-
-    @property
-    def mods(self):
-        return self.d["mods"]
 
     def data_home(self) -> Path:
         override = self.advanced.get("data_root", "").strip()

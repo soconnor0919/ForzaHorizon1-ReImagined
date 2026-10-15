@@ -3,14 +3,14 @@
 Settings > Display > NVIDIA DLSS offers Off, Performance (720p to 1440p), and
 DLAA (native 1440p). These modes use NVIDIA's NGX Vulkan implementation on a
 supported RTX GPU and driver. They are separate from the presenter's spatial
-upscaling filter and from the earlier experimental ReShade mod.
+upscaling filter.
 
 On first Play, the launcher downloads the runtime and its license directly from
 NVIDIA's public DLSS SDK, verifies pinned SHA-256 hashes, and stores them under
 `<data folder>/graphics/nvidia-dlss/<SDK revision>`. Later launches reuse verified
 files offline; changed or incomplete files are downloaded again. The download
 runs in the background and can be cancelled. No manual DLL copying or system
-installation is needed. Enabling this option disables the older `nvidia-dlss` mod.
+installation is needed.
 
 Both modes select Vulkan, a 1440p output, and render scale 2 for the UI. Performance
 uses a separate 1x scene render-target and texture cache, then reconstructs the
@@ -53,3 +53,7 @@ those fetches on NVIDIA, retaining mip bias and filtering; register gradients an
 explicit guest LOD remain explicit. The old path reproduced the defect in the live
 comparison, while the correction showed clean traffic in all 16 captured frames.
 See [Rendering issues](rendering.md#nvidia-car-reflection-sampling-2026-10-15).
+
+A subsequent moving gameplay recording still showed a colored artifact at the
+left edge. The stationary traffic comparison does not establish that all motion
+artifacts are fixed; that case remains under investigation.

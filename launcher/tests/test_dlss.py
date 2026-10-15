@@ -71,7 +71,6 @@ class RuntimeSetup(unittest.TestCase):
 
     def test_preview_configures_native_ui_without_downloading(self):
         self.cfg.settings = {"fh1_upscaler": "dlss"}
-        self.cfg.mods = {}
         env, args, notes = {}, [], []
         with patch.object(dlss, "prepare", side_effect=AssertionError("downloaded in preview")):
             dlss.configure(self.cfg, env, args, notes, write=False)
@@ -83,20 +82,11 @@ class RuntimeSetup(unittest.TestCase):
 
     def test_dlaa_launch_prepares_runtime_and_describes_native_input(self):
         self.cfg.settings = {"fh1_upscaler": "dlaa"}
-        self.cfg.mods = {}
         notes = []
         with patch.object(dlss, "prepare") as prepare:
             dlss.configure(self.cfg, {}, [], notes)
             prepare.assert_called_once_with(self.cfg)
         self.assertEqual(notes, ["DLAA: native 1440p world and UI."])
-
-    def test_rejects_legacy_bridge_before_downloading(self):
-        self.cfg.settings = {"fh1_upscaler": "dlss"}
-        self.cfg.mods = {"enabled": {"nvidia-dlss": True}}
-        with patch.object(dlss, "prepare") as prepare:
-            with self.assertRaisesRegex(RuntimeError, "old NVIDIA DLSS mod"):
-                dlss.configure(self.cfg, {}, [], [])
-            prepare.assert_not_called()
 
     def test_off_leaves_launch_unchanged(self):
         self.cfg.settings = {"fh1_upscaler": "off"}

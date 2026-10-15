@@ -10,7 +10,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import TITLE_ID, paths, mods, dlss
+from . import TITLE_ID, paths, dlss
 from .config import Config, render_toml, write_toml
 
 EXE = "forza.exe" if paths.IS_WINDOWS else "forza"
@@ -289,11 +289,8 @@ def build_plan(cfg: Config, game: GameInstall, write=True, refresh_xenia=False, 
     if cfg.advanced.get("pad_per_user"):
         env["FORZA_PAD_PER_USER"] = "1"
 
-    # Declarative mods may add launch-only environment variables and update their own INI files.
-    # Advanced environment variables remain the final override below.
     if dlss.enabled(cfg):
         dlss.check_renderer(game.dir)
-    mods.apply(cfg, env, notes, write)
     dlss.configure(cfg, env, args, notes, write)
 
     extra = split_args(cfg.advanced.get("extra_args", ""))

@@ -1,24 +1,11 @@
 """Small reusable widgets."""
-from PySide6.QtCore import QLineF, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap, QPen
 from PySide6.QtWidgets import (QAbstractButton, QFrame, QHBoxLayout, QLabel, QSizePolicy,
-                               QToolButton, QVBoxLayout, QWidget)
+                               QVBoxLayout, QWidget)
 
 from .. import paths
 from . import theme
-
-
-class AddModButton(QToolButton):
-    """Draw the plus at the button's center, independent of font metrics."""
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setPen(QPen(QColor(theme.CREAM), 1.5, Qt.SolidLine, Qt.RoundCap))
-        center = QRectF(self.rect()).center()
-        painter.drawLine(QLineF(center.x() - 5, center.y(), center.x() + 5, center.y()))
-        painter.drawLine(QLineF(center.x(), center.y() - 5, center.x(), center.y() + 5))
 
 
 class Switch(QAbstractButton):

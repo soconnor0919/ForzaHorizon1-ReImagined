@@ -117,7 +117,6 @@ set(FORZA_SOURCES
     src/debug/frame_dump.cpp
     src/hooks/crowd_anim.cpp
     src/hooks/frame_time.cpp
-    src/hooks/mod_projection.cpp
     src/hooks/physics_loader_check.cpp
     src/hooks/world_challenge.cpp
     src/hooks/world_drop_in.cpp
@@ -140,7 +139,6 @@ set(FORZA_SOURCES
     src/kernel/xekeys.cpp
     src/platform/achievement_toast.cpp
     src/platform/hud_overlay.cpp
-    src/platform/native_mods.cpp
     src/platform/motion_blur_fix.cpp
     src/platform/sdk_import.cpp
     src/platform/socket.cpp

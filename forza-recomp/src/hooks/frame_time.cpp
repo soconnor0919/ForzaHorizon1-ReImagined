@@ -26,7 +26,6 @@
 // FORZA_FRAMETIME_LOG=1 logs the dt statistics every 10 s, FORZA_FRAMETIME_CSV each frame.
 
 #include "frame_time.h"
-#include "../platform/native_mods.h"
 
 #include "../platform/guest_addr.h"
 #include "../platform/guest_memory.h"
@@ -290,9 +289,7 @@ extern "C" REX_FUNC(sub_8247C168) {
   const uint32_t lr = uint32_t(ctx.lr);
   const uint32_t game_ms = ctx.r30.u32;
   __imp__sub_8247C168(ctx, base);
-  if (lr != kFrameTimeCallReturn) return;
-  forza::mods::Frame();
-  if (REXCVAR_GET(frame_rate) <= 30) return;
+  if (lr != kFrameTimeCallReturn || REXCVAR_GET(frame_rate) <= 30) return;
   double dt;
   if (!FrameTime(base, game_ms, dt) || !PreciseFrameTime()) return;
   ctx.f31.f64 = double(float(dt));

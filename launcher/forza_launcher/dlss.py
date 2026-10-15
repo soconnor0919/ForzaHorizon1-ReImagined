@@ -55,8 +55,6 @@ def configure(cfg, env, args, notes, write=True):
         raise RuntimeError(f"Unknown NVIDIA reconstruction mode: {mode}")
     if not paths.IS_WINDOWS:
         raise RuntimeError("Native DLSS currently supports Windows only.")
-    if cfg.mods.get("enabled", {}).get("nvidia-dlss"):
-        raise RuntimeError("Disable the old NVIDIA DLSS mod before using native DLSS in Display settings.")
     if write:
         prepare(cfg)
     env["FORZA_DLSS_RUNTIME"] = str(runtime_dir(cfg))

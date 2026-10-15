@@ -31,7 +31,6 @@ QPushButton#nav:checked {{ color: {CREAM}; border-left: 3px solid {ORANGE}; back
 #pageLead {{ color: {MUTED}; font-size: 14px; }}
 #card {{ background: {PANEL}; border: 1px solid {BORDER}; border-radius: 14px; }}
 #cardTitle {{ font-size: 16px; font-weight: 700; color: {CREAM}; }}
-#modTitle {{ font-size: 20px; font-weight: 800; color: {CREAM}; }}
 #muted {{ color: {MUTED}; font-size: 13px; }}
 #help {{ color: {MUTED}; font-size: 12px; }}
 #section {{ color: {ORANGE}; font-size: 12px; font-weight: 800; letter-spacing: 2px; }}
@@ -66,20 +65,6 @@ QListWidget#groups {{ background: transparent; border: none; outline: none; }}
 QListWidget#groups::item {{ padding: 9px 14px; border-radius: 8px; color: {MUTED}; font-weight: 600; margin: 1px 0; }}
 QListWidget#groups::item:selected {{ background: {PANEL2}; color: {CREAM}; }}
 QListWidget#groups::item:hover {{ color: {TEXT}; }}
-QListWidget#modList {{ background: #130c2c; border: 1px solid {BORDER}; border-radius: 10px; outline: none; padding: 4px; }}
-QListWidget#modList::item {{ color: {MUTED}; padding: 12px 12px; border-radius: 8px; margin: 2px; }}
-QListWidget#modList::item:selected {{ background: {PANEL2}; color: {CREAM}; border-left: 3px solid {ORANGE}; }}
-QListWidget#modList::item:hover {{ background: #1a1140; color: {TEXT}; }}
-QToolButton#settingsToggle {{ color: {TEXT}; background: transparent; border: none; padding: 8px 0;
-  font-weight: 700; text-align: left; }}
-QToolButton#settingsToggle:hover {{ color: {CREAM}; }}
-QToolButton#addMod {{ color: {CREAM}; background: {PANEL2}; border: 1px solid {BORDER}; border-radius: 17px;
-  min-width: 32px; max-width: 32px; min-height: 32px; max-height: 32px; padding: 0; }}
-QToolButton#addMod:hover {{ border-color: {ORANGE}; background: #2d1d57; }}
-QToolButton#addMod::menu-indicator {{ image: none; width: 0; }}
-QMenu {{ background: {PANEL2}; border: 1px solid {BORDER}; border-radius: 8px; padding: 5px; }}
-QMenu::item {{ color: {TEXT}; padding: 8px 28px 8px 12px; border-radius: 6px; }}
-QMenu::item:selected {{ background: #35215f; color: {CREAM}; }}
 QScrollArea {{ border: none; background: transparent; }}
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 2px; }}
 QScrollBar::handle:vertical {{ background: {BORDER}; border-radius: 4px; min-height: 30px; }}

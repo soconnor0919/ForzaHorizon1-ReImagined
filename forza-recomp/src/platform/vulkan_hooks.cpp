@@ -84,7 +84,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateSwapchain(VkDevice device,
 }
 
 // Keep guest pipeline counts separate from the presenter's output and overlay pipelines.
-// The host count also exposes repeated output-pipeline creation regressions (SDK patch 0042).
+// The host count also exposes repeated output-pipeline creation regressions (SDK patch 0045).
 bool FromGpuPlugin(void* return_address) {
 #ifdef _WIN32
   HMODULE module = nullptr;
