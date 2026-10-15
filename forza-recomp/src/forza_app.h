@@ -7,6 +7,7 @@
 #include "debug/frame_stats.h"
 #include "platform/achievement_toast.h"
 #include "platform/hud_overlay.h"
+#include "platform/native_mods.h"
 #include "platform/vulkan_hooks.h"
 
 #include <string>
@@ -18,6 +19,8 @@
 #include <rex/runtime.h>
 #include <rex/system/gpu_plugin.h>
 #include <rex/ui/overlay/achievement_notification.h>
+#include <rex/ui/window.h>
+#include <rex/cvar.h>
 
 #include <filesystem>
 #include <string>
@@ -74,6 +77,10 @@ class ForzaApp : public rex::ReXApp {
 
   void OnPostSetup() override { forza::InstallVulkanHooks(runtime()->graphics_system()); }
 
+  void OnWindowPixelSizeChanged(uint32_t width, uint32_t height) override {
+    forza::mods::Resize(width, height);
+  }
+
   // The SDK's achievement toasts, registered with the ImGui drawer only while one shows, so
   // the window is not repainted nonstop (src/platform/achievement_toast.h; from
   // RecompiledHaloReach).
@@ -96,6 +103,23 @@ class ForzaApp : public rex::ReXApp {
   // raw Cache0/Cache1 partitions with a null device), so cache:\ fails with "device
   // not found". Mount a host folder there as Xenia does with mount_cache.
   void OnPreLaunchModule() override {
+    if (window()) {
+      forza::mods::Resize(window()->GetActualPhysicalWidth(), window()->GetActualPhysicalHeight());
+    }
+    forza::mods::Initialize([this, last_letterbox = -1, last_scale = 0.0f](bool letterbox,
+                                                                         float scale) mutable {
+      if (int(letterbox) == last_letterbox && scale == last_scale) return;
+      last_letterbox = int(letterbox);
+      last_scale = scale;
+      app_context().CallInUIThreadDeferred([this, letterbox, scale] {
+        rex::cvar::SetFlagByName("forza_present_16_9", "true");
+        const bool aspect_applied = rex::cvar::SetFlagByName("present_letterbox", letterbox ? "true" : "false");
+        const bool hud_applied = rex::cvar::SetFlagByName("forza_hud_horizontal_scale", std::to_string(scale));
+        REXLOG_INFO("Native mod presentation: letterbox={} HUD scale={} applied={}/{}",
+                    letterbox, scale, aspect_applied, hud_applied);
+        if (window()) window()->RequestPaint();
+      });
+    });
     // After the runtime's own handlers (MMIO, GPU watches), so it only sees faults
     // nothing else takes.
     forza::InstallFaultGuard();
