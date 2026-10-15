@@ -47,7 +47,9 @@ applies to those components.
 This remains a development integration limited to 16:9 1440p output. Gameplay,
 title-screen startup and native HUD composition have been exercised locally;
 camera cuts, transparency and all race/menu transitions need broader testing.
-Traffic cars can still blow out into white/cyan/magenta on this NVIDIA machine,
-including with DLSS disabled. A pre-blend 7e3 clamp did not fix that bug and was
-reverted. A RenderDoc capture of the affected traffic scene is available locally
-for the separate rendering investigation; this integration does not claim to fix it.
+The separate NVIDIA traffic-car blowout was reproduced with DLSS disabled and
+traced to automatic cubemap sampling. SDK patch 0047 uses hardware implicit LOD for
+those fetches on NVIDIA, retaining mip bias and filtering; register gradients and
+explicit guest LOD remain explicit. The old path reproduced the defect in the live
+comparison, while the correction showed clean traffic in all 16 captured frames.
+See [Rendering issues](rendering.md#nvidia-car-reflection-sampling-2026-10-15).

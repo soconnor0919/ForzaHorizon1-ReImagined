@@ -28,3 +28,10 @@ The native-mod development branch also carries 0041 (HUD horizontal scale),
 format), and 0046 (native Windows Vulkan DLSS/DLAA with separate scene/UI rendering).
 The public spatial FSR/CAS patch keeps number 0043. See [Native DLSS](native_dlss.md)
 for NVIDIA SDK/runtime setup, licensing and current validation limits.
+
+0047 changes ordinary automatic cubemap fetches on NVIDIA to hardware implicit
+LOD, with the same mip bias and filtering. The manually constructed coarse-gradient
+path produced checkerboard car reflections and bloom blowouts on the test RTX 5060
+Ti. Explicit guest gradients and LOD remain unchanged; other GPU vendors retain
+their previous path. `vulkan_implicit_cube_lod=false` restores it for comparisons.
+See [Rendering issues](rendering.md#nvidia-car-reflection-sampling-2026-10-15).
