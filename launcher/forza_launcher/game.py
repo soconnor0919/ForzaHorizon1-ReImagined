@@ -10,7 +10,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import TITLE_ID, paths, mods
+from . import TITLE_ID, paths, mods, dlss
 from .config import Config, render_toml, write_toml
 
 EXE = "forza.exe" if paths.IS_WINDOWS else "forza"
@@ -292,6 +292,7 @@ def build_plan(cfg: Config, game: GameInstall, write=True, refresh_xenia=False, 
     # Declarative mods may add launch-only environment variables and update their own INI files.
     # Advanced environment variables remain the final override below.
     mods.apply(cfg, env, notes, write)
+    dlss.configure(cfg, env, args, notes, write)
 
     extra = split_args(cfg.advanced.get("extra_args", ""))
     if not any(a == "--log_file" or a.startswith("--log_file=") for a in extra):

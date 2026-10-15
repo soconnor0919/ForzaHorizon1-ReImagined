@@ -188,6 +188,19 @@ class SettingsPage(QWidget):
     # --- plumbing -------------------------------------------------------------------
     def set_value(self, key, value):
         self.cfg.settings[key] = schema.coerce(schema.BY_KEY[key], value)
+        if key == "fh1_upscaler" and value != "off":
+            self.cfg.mods["enabled"]["nvidia-dlss"] = False
+            for dep, fixed in (("gpu_backend", "vulkan"), ("resolution", "1440p"), ("resolution_scale", 2)):
+                self.cfg.settings[dep] = fixed
+                row = self.rows.get(dep)
+                if row:
+                    control = row.control
+                    control.blockSignals(True)
+                    if dep == "resolution_scale":
+                        control.setValue(fixed)
+                    else:
+                        control.setCurrentIndex(control.findData(fixed))
+                    control.blockSignals(False)
         self._apply_dependencies()
         self.touched()
 
@@ -206,6 +219,9 @@ class SettingsPage(QWidget):
         self.changed.emit()
 
     def _apply_dependencies(self):
+        for key in ("gpu_backend", "resolution", "resolution_scale", "present_effect"):
+            if key in self.rows:
+                self.rows[key].control.setEnabled(self.cfg.settings.get("fh1_upscaler", "off") == "off")
         for key, dep in DEPENDS.items():
             row = self.rows.get(key)
             if row:
