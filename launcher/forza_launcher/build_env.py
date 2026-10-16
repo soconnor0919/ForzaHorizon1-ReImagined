@@ -51,29 +51,41 @@ def free_disk(path: Path) -> int:
 # 4 GB, the SDK 1.5 GB, and a downloaded toolchain 6 GB more.
 NEED_DISK_GB = 15
 NEED_DISK_TOOLCHAIN_GB = 3
-NEED_RAM_GB = 8
-RAM_PER_JOB_GB = 1.5
+# Measured peaks: about 1.5 GB at -j3 on Windows, 2 GB at -j4 and
+# 3.2 GB at -j8 on Linux. Leave room for linking and compiler variation.
+BUILD_BASE_RAM_GB = 1
+RAM_PER_JOB_GB = 0.5
+RAM_HEADROOM = 1.2
+
+
+def build_ram_gb(jobs):
+    return BUILD_BASE_RAM_GB + max(1, jobs) * RAM_PER_JOB_GB
 
 
 def default_jobs():
     cores = os.cpu_count() or 2
     _total, avail = ram_bytes()
-    by_ram = int(avail / GB / RAM_PER_JOB_GB) if avail else cores
+    by_ram = cores
+    if _total or avail:
+        by_ram = int((avail / GB / RAM_HEADROOM - BUILD_BASE_RAM_GB) / RAM_PER_JOB_GB)
     return max(1, min(cores, by_ram, 16))
 
 
-def preflight(root: Path, game_files_ready: bool, need_toolchain: bool):
+def preflight(root: Path, game_files_ready: bool, need_toolchain: bool, jobs=0):
     """[(level, text)] with level 'error', 'warn' or 'ok'."""
     out = []
     total, avail = ram_bytes()
+    jobs = max(1, jobs or default_jobs())
+    estimate = build_ram_gb(jobs)
+    build_text = f"estimated build: {estimate:g} GB for {jobs} job{'s' if jobs != 1 else ''}"
     if total:
-        text = f"Memory: {total / GB:.0f} GB installed, {avail / GB:.0f} GB free"
-        lvl = "ok"
-        if total < NEED_RAM_GB * GB:
-            lvl, text = "error", text + f" (the build and the game need about {NEED_RAM_GB} GB)"
-        elif avail < NEED_RAM_GB * GB:
-            lvl, text = "warn", text + f" (close other programs; the build and the game need about {NEED_RAM_GB} GB)"
+        text = f"Memory: {total / GB:.1f} GB installed, {avail / GB:.1f} GB free; {build_text}"
+        lvl = "ok" if avail >= estimate * RAM_HEADROOM * GB else "warn"
+        if lvl == "warn":
+            text += " (reduce parallel jobs or close other programs)"
         out.append((lvl, text))
+    else:
+        out.append(("warn", f"Memory: available memory could not be determined; {build_text}"))
     need = NEED_DISK_GB + (NEED_DISK_TOOLCHAIN_GB if need_toolchain else 0) - (8 if game_files_ready else 0)
     free = free_disk(root) / GB
     out.append(("ok" if free >= need else "error",

@@ -358,10 +358,10 @@ class SetupPage(QWidget):
         self.jobs = QSpinBox()
         self.jobs.setRange(1, 64)
         self.jobs.setValue(cfg.advanced.get("build_jobs") or build_env.default_jobs())
-        self.jobs.valueChanged.connect(lambda v: (cfg.advanced.__setitem__("build_jobs", v), cfg.save()))
+        self.jobs.valueChanged.connect(self._jobs_changed)
         jrow.addWidget(self.jobs)
-        jrow.addWidget(label("Each job uses about 1.5 GB of memory. More jobs are faster; too many run out of "
-                             "memory.", "help"), 1)
+        jrow.addWidget(label("Build estimate: 1 GB plus about 0.5 GB per job, with extra memory left free. "
+                             "The game typically uses about 1.1 GB when played.", "help"), 1)
         self.c3.lay.addLayout(jrow)
         self.lowprio = WrappedCheck("Run at low priority (the computer stays usable)")
         self.lowprio.setChecked(True)
@@ -495,6 +495,11 @@ class SetupPage(QWidget):
         self.go3.setEnabled(not busy and have)
         self._pkg_kind()
 
+    def _jobs_changed(self, jobs):
+        self.cfg.advanced["build_jobs"] = jobs
+        self.cfg.save()
+        self._refresh_checks()
+
     def _refresh_checks(self):
         while self.checks.count():
             w = self.checks.takeAt(0).widget()
@@ -503,7 +508,7 @@ class SetupPage(QWidget):
         root = self.cfg.data_home()
         tools = build_env.detect_tools(root)
         for lvl, text in build_env.preflight(root, (self.cfg.game_files() / "default.xex").is_file(),
-                                              bool(tools.missing)):
+                                              bool(tools.missing), jobs=self.jobs.value()):
             r = StatusRow("")
             r.title.hide()
             r.set({"ok": True, "warn": None, "error": False}[lvl], text)
@@ -759,7 +764,8 @@ class SetupPage(QWidget):
         if tools.problems:
             QMessageBox.warning(self, "Toolchain", tools.problems[0])
             return
-        errors = [t for lvl, t in build_env.preflight(cfg.data_home(), True, bool(tools.missing)) if lvl == "error"]
+        errors = [t for lvl, t in build_env.preflight(cfg.data_home(), True, bool(tools.missing),
+                                                    jobs=self.jobs.value()) if lvl == "error"]
         if errors and QMessageBox.question(self, "This computer may not manage the build",
                                            "\n".join(errors) + "\n\nTry anyway?") != QMessageBox.Yes:
             return

@@ -45,6 +45,23 @@ machine from their own copy:
    `forza-recomp/` sources, the launcher version, the SDK pin and the TU4 package). "Free disk space" deletes the build tree (about 1 GB); the game keeps working.
 4. **Play**, **Settings**, log folder, versions.
 
+### Build memory estimate (#32)
+
+Setup estimates build memory from the selected parallel-job count: 1 GB base
+plus 0.5 GB per job. This is a conservative estimate based on the measured peaks
+below, not a fixed hardware requirement. The estimate refreshes when the job
+count changes, and the Build button checks that same count. Available memory
+below the estimate plus 20% headroom produces a warning to reduce jobs or close
+other programs; it does not trigger the error-only "Try anyway?" dialog.
+Automatic job selection uses the same budget, limited by CPU count and 16 jobs.
+If available memory cannot be detected, Setup says so instead of reporting zero
+memory. Disk and toolchain errors retain their existing behavior.
+
+For example, an 8 GB machine with 5 GB free and three jobs now passes the memory
+check with a 2.5 GB estimate. Sixteen selected jobs estimate 9 GB and warn on that
+same machine. The game's approximately 1.1 GB measured usage is shown separately
+because playing and building are separate activities.
+
 Data lives in the game's user folder (`~/.local/share/forza`; on Windows `%LOCALAPPDATA%\ForzaReImagined`, or
 `Documents\forza` for an install that already lives there; changeable under Setup > "Where the game is built", see "Round 5"): `game/` (extracted files), `toolchain/`, `downloads/`,
 `sdk/`, `build/`, `runtime/` (what Play runs, with `forza.toml`), saves, `forza.log`.
@@ -309,8 +326,8 @@ installed; the Sdk runtime is 1.8 GB installed, the llvm22 extension 0.5 GB).
   save's Aventador, driven with scripted RT and left stick (FORZA_AUTOPRESS_FIFO) for 3.5 minutes at
   59.7 to 60 fps. Peak RSS of the game (VmHWM): 0.68 GB at the main menu, 1.0 GB entering free roam,
   1.13 GB after 3.5 minutes of driving. README and the landing page say "about 4 GB free" now with these
-  numbers (game 1.1 GB; build 2 GB at -j4, 3.2 GB at -j8). Note: the launcher's preflight
-  (`build_env.NEED_RAM_GB = 8`) still errors under 8 GB installed; it is a conservative number, not measured.
+  numbers (game 1.1 GB; build 2 GB at -j4, 3.2 GB at -j8). The original fixed 8 GB preflight
+  requirement has since been replaced by the job-based estimate described above (#32).
 * The launcher window (not headless) runs under Qt's Wayland platform inside the sandbox (KDE Plasma 6,
   radv), with the Qt file dialogs; screenshots taken with spectacle on the host.
 * Test recipe: `FLATPAK_USER_DIR=~/.cache/forza-flatpak/userdir` for a clean installation. The window
