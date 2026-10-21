@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDialog, QFileDialo
                                QHBoxLayout, QLabel, QListView, QListWidget,
                                QListWidgetItem, QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
-from .. import gallery, paths
+from .. import gallery, paths, photo_codec, saves
 from . import theme
 
 
@@ -158,12 +158,13 @@ class PhotoPreview(QDialog):
         self.details.setText(f"Source: {photo.width} × {photo.height}  ·  File modified "
                              + datetime.fromtimestamp(photo.modified).strftime("%d %b %Y, %H:%M"))
         self.message.setText("Loading photo…")
-        self.start(lambda task: gallery.read_photo(photo.path)[0], self.loaded)
+        self.start(lambda task: gallery.read_photo(photo.path, keys=photo.keys)[0], self.loaded)
 
     def loaded(self, image):
         self.image = image
         self.source_pixmap = QPixmap.fromImage(image)
-        self.message.setText("")
+        self.message.setText("Saved thumbnail only. Check your game files and profile, then refresh "
+                             "to load the original." if self.photos[self.index].preview_only else "")
         self.paint_photo()
 
     def paint_photo(self):
@@ -371,11 +372,15 @@ class GalleryPage(QWidget):
 
         def scan(task):
             skipped = 0
+            try:
+                keys = photo_codec.keys_for(self.cfg)
+            except (OSError, ValueError, saves.SaveError):
+                keys = ()
             for directory, files in gallery.photo_groups(profile, task.isInterruptionRequested):
                 if task.isInterruptionRequested():
                     break
                 result = gallery.load_group(directory, files, task.isInterruptionRequested,
-                                            thumbnail_size=thumbnail_size)
+                                            thumbnail_size=thumbnail_size, keys=keys)
                 if result:
                     task.photo.emit(*result)
                 else:

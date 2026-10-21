@@ -5,14 +5,14 @@ files need not have extensions. JPEG payloads may follow a save header, so sniff
 the bytes as well as trying ordinary image files. Do not scan car thumbnails,
 game media, DLC, or the online storefront.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 import os
 import re
 import stat
 import tempfile
 
-from . import TITLE_ID, game
+from . import TITLE_ID, game, photo_codec
 
 MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_PIXELS = 40_000_000
@@ -28,6 +28,8 @@ class Photo:
     modified: float
     width: int
     height: int
+    keys: tuple = field(default=(), repr=False, compare=False)
+    preview_only: bool = False
 
 
 def profile_folder(cfg):
@@ -100,7 +102,7 @@ def _image_sources(data):
         yield data[start:]
 
 
-def read_photo(path, size=None):
+def read_photo(path, size=None, *, keys=()):
     """Decode the largest image in a file, optionally scaled for a thumbnail.
 
     QImage is safe in a worker; QPixmap is created only by the UI. Limit both file
@@ -118,6 +120,8 @@ def read_photo(path, size=None):
         data = source.read(MAX_FILE_BYTES + 1)
     if not data or len(data) > MAX_FILE_BYTES:
         raise ValueError("Photo is empty or exceeds the 64 MB image limit.")
+    if photo_codec.encrypted_length(data) is not None:
+        data = photo_codec.decode(data, keys)
     best = None
     for payload in _image_sources(data):
         buffer = QBuffer()
@@ -143,19 +147,23 @@ def read_photo(path, size=None):
     return best[1:]
 
 
-def load_group(directory, files, cancelled=lambda: False, thumbnail_size=(800, 450)):
+def load_group(directory, files, cancelled=lambda: False, thumbnail_size=(800, 450), keys=()):
     """One tile per named photo; prefer the full picture over its saved preview."""
     best = None
+    missing_original = False
     for path in files:
         if cancelled():
             return None
         try:
-            image, width, height = read_photo(path, thumbnail_size)
+            image, width, height = read_photo(path, thumbnail_size, keys=keys)
             modified = path.stat().st_mtime
         except (OSError, ValueError):
+            missing_original |= path.name.lower().startswith("image@")
             continue
         if best is None or width * height > best[0].width * best[0].height:
-            best = Photo(path, modified, width, height), image
+            best = Photo(path, modified, width, height, keys), image
+    if best and missing_original:
+        best = replace(best[0], preview_only=True), best[1]
     return best
 
 

@@ -1,5 +1,7 @@
 """Photo discovery, decoding, export, and Qt lifecycle tests with disposable saves."""
 import os
+import hmac
+import struct
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from pathlib import Path
 import sys
@@ -11,7 +13,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from forza_launcher import gallery, game
+from forza_launcher import gallery, game, photo_codec, save_editor
 from forza_launcher.config import Config
 
 try:
@@ -73,6 +75,83 @@ class GalleryTests(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data if data is not None else self.encoded())
         return path
+
+    def native_photo(self, jpeg=None):
+        jpeg = jpeg or self.encoded(1280, 720)
+        keys = ((bytes(range(16)), bytes(range(32))),)
+        iv = bytes(range(16))
+        word = len(jpeg)
+        for value in struct.unpack(">4I", iv):
+            word ^= value
+        cipher = save_editor._encrypt_cbc(keys[0][0], jpeg + bytes((-len(jpeg)) % 16), iv)
+        payload = struct.pack(">I", word) + iv + cipher
+        raw = hmac.digest(keys[0][1], payload, "sha256") + payload
+        return raw, keys, jpeg
+
+    def test_native_photo_authentication_and_bounds(self):
+        raw, keys, jpeg = self.native_photo()
+        self.assertEqual(photo_codec.decode(raw, keys), jpeg)
+        for damaged in (raw[:-1], raw + bytes(16), bytes(32) + raw[32:],
+                        raw[:60] + bytes([raw[60] ^ 1]) + raw[61:]):
+            with self.subTest(size=len(damaged)), self.assertRaises(ValueError):
+                photo_codec.decode(damaged, keys)
+        with self.assertRaises(ValueError):
+            photo_codec.decode(raw, ((bytes(16), bytes(32)),))
+        with self.assertRaises(ValueError):
+            photo_codec.decode(raw, ())
+        with patch.object(photo_codec, "MAX_BYTES", len(raw)-1):
+            with self.assertRaises(ValueError):
+                photo_codec.decode(raw, keys)
+
+    def test_native_photo_keys_follow_profile_and_explicit_identity(self):
+        folder = self.cfg.game_files()
+        folder.mkdir(parents=True)
+        (folder / "default.xex").write_bytes(b"synthetic executable")
+        material = ((bytes(range(16)), bytes(range(32))),)
+        with patch.object(photo_codec, "_tables", return_value=material):
+            own = photo_codec.keys_for(self.cfg)
+            self.cfg.profile.update(mode="xenia", xenia_xuid="0123456789ABCDEF")
+            imported = photo_codec.keys_for(self.cfg)
+            self.assertNotEqual(own, imported)
+            self.cfg.advanced["extra_args"] = "--profile_xuid=" + game.LOCAL_PROFILE
+            self.assertEqual(photo_codec.keys_for(self.cfg), own)
+        self.assertNotIn(own[0][0].hex(), repr(gallery.Photo(Path("photo"), 0, 1, 1, own)))
+
+    def test_native_photo_grid_viewer_and_export_use_original(self):
+        raw, keys, jpeg = self.native_photo()
+        path = self.photo(data=raw)
+        path = path.rename(path.with_name("image@native"))
+        (path.parent / "thumb").write_bytes(self.encoded(416, 240))
+        before = {p: p.read_bytes() for p in path.parent.iterdir()}
+        with patch.object(photo_codec, "keys_for", return_value=keys):
+            page = self.page_ready()
+        photo = page.grid.item(0).data(Qt.UserRole)
+        self.assertEqual(photo.path, path)
+        self.assertEqual((photo.width, photo.height), (1280, 720))
+        self.assertFalse(photo.preview_only)
+        page.open_photo(page.grid.item(0))
+        self.wait(lambda: page.preview.task is None)
+        preview = page.preview
+        self.assertEqual((preview.image.width(), preview.image.height()), (1280, 720))
+        destination = self.root / "native.png"
+        gallery.export_photo(preview.image, destination, self.profile)
+        self.assertEqual(QImage(str(destination)), QImage.fromData(jpeg))
+        self.assertEqual(before, {p: p.read_bytes() for p in before})
+
+    def test_native_photo_without_matching_keys_labels_thumbnail_fallback(self):
+        raw, keys, _ = self.native_photo()
+        path = self.photo(data=raw)
+        path.rename(path.with_name("image@native"))
+        thumb = path.parent / "thumb"
+        thumb.write_bytes(self.encoded(416, 240))
+        with patch.object(photo_codec, "keys_for", return_value=()):
+            page = self.page_ready()
+        photo = page.grid.item(0).data(Qt.UserRole)
+        self.assertEqual(photo.path, thumb)
+        self.assertTrue(photo.preview_only)
+        page.open_photo(page.grid.item(0))
+        self.wait(lambda: page.preview.task is None)
+        self.assertIn("thumbnail only", page.preview.message.text())
 
     def page_ready(self):
         from forza_launcher.ui.gallery_page import GalleryPage

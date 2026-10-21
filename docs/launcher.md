@@ -139,15 +139,22 @@ anything. It reads `photo/` or `photos/` content directories under the active
 `B13EBABEBABEBABE/4D5309C9/00000001` save. Standard images, extensionless images,
 and JPEGs embedded after a file header are decoded by Qt. Where a named photo
 folder contains both a preview and a larger image, the larger image is used.
-Encrypted or otherwise unsupported files are reported as unreadable. The gallery
+Native encrypted `image@...` photos are authenticated and decoded in memory using
+tables from your own `default.xex` and the active profile identity (including an
+explicit `--profile_xuid`). No game keys are bundled or written to disk. Set up
+your game files before opening native originals. If the original cannot be read
+but its thumbnail can, the viewer labels it **Saved thumbnail only** rather than
+presenting the small preview as the full-quality original. Other unsupported files
+are reported as unreadable. The gallery
 cannot repair pictures already saved with corrupted pixels by older game builds.
 
 Discovery, image decoding and export run in background threads. Source files are
 read only; exports use an atomic replacement after successful encoding. The decoder
 limits files to 64 MB and decoded images to 40 million pixels. Tests use disposable
-profiles and generated images; a new in-game photo save still needs an end-to-end
-check (the local player profile had no photos, and the isolated game run ended
-before saving one).
+profiles and generated images. An actual photo saved by a private TU4 development
+host was authenticated, selected over its 416×240 thumbnail, decoded and exported
+at 1280×720; source save hashes were unchanged. This checks the native file path,
+not photo-capture quality, large-photo uploads or every imported Xenia save.
 
 ## Launcher interface
 
